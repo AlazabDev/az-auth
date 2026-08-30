@@ -1,0 +1,4 @@
+:root { --az-primary: #145a8d; --az-accent: #d7a647; --az-ink: #172b3a; }
+body, .desk-page { font-family: Inter, "Noto Sans Arabic", sans-serif; }
+[dir="rtl"] .layout-main-section { direction: rtl; }
+.az-auth-brand { color: var(--az-primary); font-weight: 700; }
