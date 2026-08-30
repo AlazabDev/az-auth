@@ -11,9 +11,9 @@ import { ThemeProvider } from "@/components/theme-provider"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "SaaStart | Auth0 by Okta",
+  title: "AZ Auth | إدارة الهوية للمؤسسات",
   description:
-    "SaaStart is a reference B2B SaaS application built using Next.js and Auth0 by Okta.",
+    "AZ Auth منصة احترافية لإدارة الهوية والمصادقة والتطبيقات للمؤسسات.",
   metadataBase: new URL("https://saastart.app"),
 }
 
@@ -23,7 +23,7 @@ export default async function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={inter.className} suppressHydrationWarning>
+    <html lang="ar" dir="rtl" className={inter.className} suppressHydrationWarning>
       <body className="min-h-screen bg-background font-sans antialiased">
         <ThemeProvider
           attribute="class"
