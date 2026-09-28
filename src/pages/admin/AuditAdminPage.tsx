@@ -17,6 +17,12 @@ const labels: Record<string, string> = {
   mfa_enabled: "تفعيل التحقق الثنائي",
   mfa_disabled: "تعطيل التحقق الثنائي",
   session_revoked: "إنهاء جلسة",
+  role_granted: "منح صلاحية",
+  role_revoked: "سحب صلاحية",
+  notification_sent: "إرسال إشعار",
+  portal_token_issued: "إصدار رمز بوابة",
+  portal_token_refreshed: "تجديد رمز بوابة",
+  portal_token_denied: "رفض رمز بوابة",
 };
 
 const AuditAdminPage = () => {

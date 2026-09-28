@@ -26,6 +26,8 @@ import AppsAdminPage from "./pages/admin/AppsAdminPage.tsx";
 import AuditAdminPage from "./pages/admin/AuditAdminPage.tsx";
 import ApiGatewayPage from "./pages/admin/ApiGatewayPage.tsx";
 import DatabasePage from "./pages/admin/DatabasePage.tsx";
+import UsersAdminPage from "./pages/admin/UsersAdminPage.tsx";
+import PortalRefreshPage from "./pages/portal/RefreshPage.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -54,6 +56,7 @@ const App = () => (
               <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/portal/refresh" element={<PortalRefreshPage />} />
               <Route path="/admin" element={<AdminLayout />}>
 
                 <Route index element={<AdminOverviewPage />} />
@@ -63,6 +66,7 @@ const App = () => (
                 <Route path="audit" element={<AuditAdminPage />} />
                 <Route path="api" element={<ApiGatewayPage />} />
                 <Route path="database" element={<DatabasePage />} />
+                <Route path="users" element={<UsersAdminPage />} />
               </Route>
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
