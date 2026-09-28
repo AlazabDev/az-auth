@@ -172,24 +172,36 @@ export type Database = {
       }
       adp_profiles: {
         Row: {
+          address: string | null
+          avatar_url: string | null
           created_at: string
           email: string | null
           full_name: string | null
           id: string
+          phone: string | null
+          preferences: Json
           updated_at: string
         }
         Insert: {
+          address?: string | null
+          avatar_url?: string | null
           created_at?: string
           email?: string | null
           full_name?: string | null
           id: string
+          phone?: string | null
+          preferences?: Json
           updated_at?: string
         }
         Update: {
+          address?: string | null
+          avatar_url?: string | null
           created_at?: string
           email?: string | null
           full_name?: string | null
           id?: string
+          phone?: string | null
+          preferences?: Json
           updated_at?: string
         }
         Relationships: []
@@ -482,6 +494,30 @@ export type Database = {
           key?: string
           updated_at?: string | null
           value?: string
+        }
+        Relationships: []
+      }
+      approval_memberships: {
+        Row: {
+          active: boolean
+          created_at: string
+          role: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          role: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          role?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -811,6 +847,221 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      azabot_admins: {
+        Row: {
+          created_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      azabot_agents: {
+        Row: {
+          agent_name: string | null
+          agent_version: string
+          created_at: string
+          deployment: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          is_default: boolean
+          max_tokens: number
+          name: string
+          provider: string
+          slug: string
+          sort_order: number
+          system_prompt: string
+          temperature: number
+          tools: string[]
+          updated_at: string
+        }
+        Insert: {
+          agent_name?: string | null
+          agent_version?: string
+          created_at?: string
+          deployment?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          max_tokens?: number
+          name: string
+          provider: string
+          slug: string
+          sort_order?: number
+          system_prompt?: string
+          temperature?: number
+          tools?: string[]
+          updated_at?: string
+        }
+        Update: {
+          agent_name?: string | null
+          agent_version?: string
+          created_at?: string
+          deployment?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          max_tokens?: number
+          name?: string
+          provider?: string
+          slug?: string
+          sort_order?: number
+          system_prompt?: string
+          temperature?: number
+          tools?: string[]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      azabot_conversations: {
+        Row: {
+          agent_id: string | null
+          channel: string
+          created_at: string
+          id: string
+          last_message_at: string
+          message_count: number
+          owner_id: string
+          title: string
+        }
+        Insert: {
+          agent_id?: string | null
+          channel: string
+          created_at?: string
+          id: string
+          last_message_at?: string
+          message_count?: number
+          owner_id: string
+          title?: string
+        }
+        Update: {
+          agent_id?: string | null
+          channel?: string
+          created_at?: string
+          id?: string
+          last_message_at?: string
+          message_count?: number
+          owner_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "azabot_conversations_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "azabot_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      azabot_messages: {
+        Row: {
+          attachments: Json
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          role: string
+          turn_id: string
+        }
+        Insert: {
+          attachments?: Json
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          role: string
+          turn_id: string
+        }
+        Update: {
+          attachments?: Json
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          role?: string
+          turn_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "azabot_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "azabot_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "azabot_messages_turn_id_fkey"
+            columns: ["turn_id"]
+            isOneToOne: false
+            referencedRelation: "azabot_turns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      azabot_turns: {
+        Row: {
+          agent_id: string | null
+          completed_at: string | null
+          conversation_id: string
+          created_at: string
+          error_code: string | null
+          id: string
+          input_hash: string
+          owner_id: string
+          result: Json | null
+          status: string
+        }
+        Insert: {
+          agent_id?: string | null
+          completed_at?: string | null
+          conversation_id: string
+          created_at?: string
+          error_code?: string | null
+          id: string
+          input_hash: string
+          owner_id: string
+          result?: Json | null
+          status?: string
+        }
+        Update: {
+          agent_id?: string | null
+          completed_at?: string | null
+          conversation_id?: string
+          created_at?: string
+          error_code?: string | null
+          id?: string
+          input_hash?: string
+          owner_id?: string
+          result?: Json | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "azabot_turns_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "azabot_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "azabot_turns_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "azabot_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       branches: {
         Row: {
@@ -1257,6 +1508,424 @@ export type Database = {
             columns: ["system_id"]
             isOneToOne: false
             referencedRelation: "systems"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_audit_logs: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_name: string
+          created_at: string
+          document_id: string
+          id: string
+          metadata: Json | null
+          new_value: Json | null
+          old_value: Json | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_name: string
+          created_at?: string
+          document_id: string
+          id?: string
+          metadata?: Json | null
+          new_value?: Json | null
+          old_value?: Json | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_name?: string
+          created_at?: string
+          document_id?: string
+          id?: string
+          metadata?: Json | null
+          new_value?: Json | null
+          old_value?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_audit_logs_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_comments: {
+        Row: {
+          created_at: string
+          document_id: string
+          id: string
+          page: number | null
+          resolved: boolean
+          resolved_at: string | null
+          resolved_by: string | null
+          text: string
+          updated_at: string
+          user_id: string | null
+          user_name: string
+          x_position: number | null
+          y_position: number | null
+        }
+        Insert: {
+          created_at?: string
+          document_id: string
+          id?: string
+          page?: number | null
+          resolved?: boolean
+          resolved_at?: string | null
+          resolved_by?: string | null
+          text: string
+          updated_at?: string
+          user_id?: string | null
+          user_name: string
+          x_position?: number | null
+          y_position?: number | null
+        }
+        Update: {
+          created_at?: string
+          document_id?: string
+          id?: string
+          page?: number | null
+          resolved?: boolean
+          resolved_at?: string | null
+          resolved_by?: string | null
+          text?: string
+          updated_at?: string
+          user_id?: string | null
+          user_name?: string
+          x_position?: number | null
+          y_position?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_comments_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_reviewers: {
+        Row: {
+          access_count: number
+          access_token_hash: string | null
+          created_at: string
+          created_by: string | null
+          department: string
+          document_id: string
+          email_sent_at: string | null
+          id: string
+          last_accessed_at: string | null
+          rejection_reason: string | null
+          reviewer_email: string
+          reviewer_name: string
+          signature_data: string | null
+          signed_at: string | null
+          status: string
+          token_expires_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_count?: number
+          access_token_hash?: string | null
+          created_at?: string
+          created_by?: string | null
+          department: string
+          document_id: string
+          email_sent_at?: string | null
+          id?: string
+          last_accessed_at?: string | null
+          rejection_reason?: string | null
+          reviewer_email: string
+          reviewer_name: string
+          signature_data?: string | null
+          signed_at?: string | null
+          status?: string
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_count?: number
+          access_token_hash?: string | null
+          created_at?: string
+          created_by?: string | null
+          department?: string
+          document_id?: string
+          email_sent_at?: string | null
+          id?: string
+          last_accessed_at?: string | null
+          rejection_reason?: string | null
+          reviewer_email?: string
+          reviewer_name?: string
+          signature_data?: string | null
+          signed_at?: string | null
+          status?: string
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_reviewers_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_signatures: {
+        Row: {
+          document_id: string
+          id: string
+          ip_address: unknown
+          pdf_hash: string | null
+          reviewer_id: string | null
+          signature_data: string
+          signed_at: string
+          signed_pdf_url: string | null
+          signer_id: string | null
+          signer_name: string
+        }
+        Insert: {
+          document_id: string
+          id?: string
+          ip_address?: unknown
+          pdf_hash?: string | null
+          reviewer_id?: string | null
+          signature_data: string
+          signed_at?: string
+          signed_pdf_url?: string | null
+          signer_id?: string | null
+          signer_name: string
+        }
+        Update: {
+          document_id?: string
+          id?: string
+          ip_address?: unknown
+          pdf_hash?: string | null
+          reviewer_id?: string | null
+          signature_data?: string
+          signed_at?: string
+          signed_pdf_url?: string | null
+          signer_id?: string | null
+          signer_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_signatures_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_signatures_reviewer_id_fkey"
+            columns: ["reviewer_id"]
+            isOneToOne: false
+            referencedRelation: "document_reviewers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_sync_logs: {
+        Row: {
+          completed_at: string | null
+          document_type: string
+          error_count: number
+          id: string
+          items_synced: number
+          message: string | null
+          page: number
+          requested_by: string | null
+          started_at: string
+          status: string
+          synced_count: number
+        }
+        Insert: {
+          completed_at?: string | null
+          document_type: string
+          error_count?: number
+          id?: string
+          items_synced?: number
+          message?: string | null
+          page?: number
+          requested_by?: string | null
+          started_at?: string
+          status: string
+          synced_count?: number
+        }
+        Update: {
+          completed_at?: string | null
+          document_type?: string
+          error_count?: number
+          id?: string
+          items_synced?: number
+          message?: string | null
+          page?: number
+          requested_by?: string | null
+          started_at?: string
+          status?: string
+          synced_count?: number
+        }
+        Relationships: []
+      }
+      document_versions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          document_id: string
+          file_bucket: string | null
+          file_path: string | null
+          file_url: string | null
+          id: string
+          notes: string | null
+          source: string
+          version_number: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          document_id: string
+          file_bucket?: string | null
+          file_path?: string | null
+          file_url?: string | null
+          id?: string
+          notes?: string | null
+          source: string
+          version_number?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          document_id?: string
+          file_bucket?: string | null
+          file_path?: string | null
+          file_url?: string | null
+          id?: string
+          notes?: string | null
+          source?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_versions_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      documents: {
+        Row: {
+          ai_extracted_data: Json | null
+          ai_summary: string | null
+          assigned_approver_id: string | null
+          assigned_reviewer_id: string | null
+          client_email: string | null
+          client_name: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          daftra_id: string | null
+          date: string
+          description: string | null
+          file_bucket: string | null
+          file_path: string | null
+          file_url: string | null
+          html_url: string | null
+          id: string
+          magicplan_gallery_url: string | null
+          number: string
+          payment_status: string
+          pdf_url: string | null
+          project_id: string | null
+          raw_json: Json | null
+          sender_name: string | null
+          status: string
+          synced_at: string | null
+          title: string | null
+          total: number
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          ai_extracted_data?: Json | null
+          ai_summary?: string | null
+          assigned_approver_id?: string | null
+          assigned_reviewer_id?: string | null
+          client_email?: string | null
+          client_name?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          daftra_id?: string | null
+          date?: string
+          description?: string | null
+          file_bucket?: string | null
+          file_path?: string | null
+          file_url?: string | null
+          html_url?: string | null
+          id?: string
+          magicplan_gallery_url?: string | null
+          number: string
+          payment_status?: string
+          pdf_url?: string | null
+          project_id?: string | null
+          raw_json?: Json | null
+          sender_name?: string | null
+          status?: string
+          synced_at?: string | null
+          title?: string | null
+          total?: number
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          ai_extracted_data?: Json | null
+          ai_summary?: string | null
+          assigned_approver_id?: string | null
+          assigned_reviewer_id?: string | null
+          client_email?: string | null
+          client_name?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          daftra_id?: string | null
+          date?: string
+          description?: string | null
+          file_bucket?: string | null
+          file_path?: string | null
+          file_url?: string | null
+          html_url?: string | null
+          id?: string
+          magicplan_gallery_url?: string | null
+          number?: string
+          payment_status?: string
+          pdf_url?: string | null
+          project_id?: string | null
+          raw_json?: Json | null
+          sender_name?: string | null
+          status?: string
+          synced_at?: string | null
+          title?: string | null
+          total?: number
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -2474,6 +3143,50 @@ export type Database = {
           },
         ]
       }
+      project_files: {
+        Row: {
+          bucket_id: string
+          created_at: string
+          file_size: number | null
+          id: string
+          mime_type: string | null
+          name: string
+          object_path: string
+          project_id: string
+          uploaded_by: string
+        }
+        Insert: {
+          bucket_id?: string
+          created_at?: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          name: string
+          object_path: string
+          project_id: string
+          uploaded_by?: string
+        }
+        Update: {
+          bucket_id?: string
+          created_at?: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          name?: string
+          object_path?: string
+          project_id?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_files_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_images: {
         Row: {
           alt_text: string | null
@@ -2936,6 +3649,68 @@ export type Database = {
             columns: ["finishing_level_id"]
             isOneToOne: false
             referencedRelation: "finishing_levels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quote_items: {
+        Row: {
+          approval_status: string
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          daftra_item_id: string | null
+          document_id: string
+          id: string
+          notes: string | null
+          product_description: string | null
+          product_name: string
+          quantity: number
+          rejection_reason: string | null
+          total_price: number
+          unit_price: number
+          updated_at: string
+        }
+        Insert: {
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          daftra_item_id?: string | null
+          document_id: string
+          id?: string
+          notes?: string | null
+          product_description?: string | null
+          product_name: string
+          quantity?: number
+          rejection_reason?: string | null
+          total_price?: number
+          unit_price?: number
+          updated_at?: string
+        }
+        Update: {
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          daftra_item_id?: string | null
+          document_id?: string
+          id?: string
+          notes?: string | null
+          product_description?: string | null
+          product_name?: string
+          quantity?: number
+          rejection_reason?: string | null
+          total_price?: number
+          unit_price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_items_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
             referencedColumns: ["id"]
           },
         ]
@@ -4160,6 +4935,48 @@ export type Database = {
           },
         ]
       }
+      sso_apps_public: {
+        Row: {
+          base_url: string | null
+          color: string | null
+          description_ar: string | null
+          description_en: string | null
+          id: string | null
+          is_default: boolean | null
+          logo_url: string | null
+          name_ar: string | null
+          name_en: string | null
+          slug: string | null
+          sort_order: number | null
+        }
+        Insert: {
+          base_url?: string | null
+          color?: string | null
+          description_ar?: string | null
+          description_en?: string | null
+          id?: string | null
+          is_default?: boolean | null
+          logo_url?: string | null
+          name_ar?: string | null
+          name_en?: string | null
+          slug?: string | null
+          sort_order?: number | null
+        }
+        Update: {
+          base_url?: string | null
+          color?: string | null
+          description_ar?: string | null
+          description_en?: string | null
+          id?: string | null
+          is_default?: boolean | null
+          logo_url?: string | null
+          name_ar?: string | null
+          name_en?: string | null
+          slug?: string | null
+          sort_order?: number | null
+        }
+        Relationships: []
+      }
       storage_object_resolution: {
         Row: {
           availability: string | null
@@ -4341,6 +5158,56 @@ export type Database = {
           withholding_1: number
         }[]
       }
+      azabot_begin_turn: {
+        Args: {
+          p_agent_id: string
+          p_attachments: Json
+          p_channel: string
+          p_conversation_id: string
+          p_input_hash: string
+          p_message: string
+          p_request_id: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      azabot_fail_turn: {
+        Args: { p_code: string; p_request_id: string; p_user_id: string }
+        Returns: undefined
+      }
+      azabot_finish_turn: {
+        Args: { p_request_id: string; p_result: Json; p_user_id: string }
+        Returns: undefined
+      }
+      azabot_is_admin: { Args: never; Returns: boolean }
+      azabot_save_agent: {
+        Args: { p_agent: Json }
+        Returns: {
+          agent_name: string | null
+          agent_version: string
+          created_at: string
+          deployment: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          is_default: boolean
+          max_tokens: number
+          name: string
+          provider: string
+          slug: string
+          sort_order: number
+          system_prompt: string
+          temperature: number
+          tools: string[]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "azabot_agents"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       can_manage_storage: { Args: never; Returns: boolean }
       generate_quotation_number: { Args: never; Returns: string }
       get_active_subscriptions: {
@@ -4362,6 +5229,10 @@ export type Database = {
           total_conversations: number
         }[]
       }
+      has_approval_role: {
+        Args: { _roles: string[]; _user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -4370,6 +5241,7 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
+      is_approval_member: { Args: { _user_id?: string }; Returns: boolean }
       log_security_event: {
         Args: {
           _actor_email?: string
