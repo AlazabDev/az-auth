@@ -7,6 +7,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import type { User as SupaUser } from "@supabase/supabase-js";
 import { buildHandoffUrl, fetchSsoApps, type SsoApp } from "@/lib/sso";
+import { openPortal } from "@/lib/portal";
+import { notifyError } from "@/lib/notifications";
 import { fetchMyRoles, filterAppsByRole } from "@/lib/rbac";
 import { logAuthEvent } from "@/lib/audit";
 import { ShieldCheck } from "lucide-react";
@@ -51,8 +53,21 @@ const DashboardPage = () => {
   const handleLaunch = async (app: SsoApp) => {
     setLaunching(app.id);
     try {
+      // Portal apps (Outpost analytics) are opened with a short-lived signed Portal JWT,
+      // everything else keeps the standard Supabase session hand-off.
+      if (app.slug === "outpost" || app.slug.startsWith("outpost-")) {
+        await openPortal(app.slug);
+        return;
+      }
       const url = await buildHandoffUrl(app);
       window.location.href = url;
+    } catch (e) {
+      notifyError(
+        "تعذر فتح المنصة",
+        e instanceof Error && e.message === "forbidden"
+          ? "لا تملك صلاحية الدخول إلى هذه المنصة."
+          : "حاول مرة أخرى بعد قليل.",
+      );
     } finally {
       setLaunching(null);
     }
