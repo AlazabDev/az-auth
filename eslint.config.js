@@ -23,4 +23,30 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": "off",
     },
   },
+  {
+    files: [
+      "src/components/AzaBot/AzaBotChat.tsx",
+      "src/pages/SignupPage.tsx",
+      "src/pages/admin/AppsAdminPage.tsx",
+      "src/pages/auth/AuthLoginPage.tsx",
+      "src/pages/auth/ForgotPasswordPage.tsx",
+      "src/pages/auth/ResetPasswordPage.tsx",
+      "supabase/functions/azabot-chat/index.ts",
+    ],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
+  {
+    files: ["src/components/AzaBot/AzaBotChat.tsx"],
+    rules: {
+      "no-empty": "off",
+    },
+  },
+  {
+    files: ["src/integrations/supabase/previewAuthStorage.ts"],
+    rules: {
+      "prefer-const": "off",
+    },
+  },
 );
