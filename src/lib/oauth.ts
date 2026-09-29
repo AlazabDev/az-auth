@@ -7,7 +7,6 @@ export type OAuthProvider = "google" | "facebook" | "azure";
 const OPTIONS: Record<OAuthProvider, { scopes?: string; label: string }> = {
   google: { label: "Google" },
   facebook: { scopes: "email public_profile", label: "Facebook" },
-  // Entra: tenant is restricted to Alazab staff via the Azure Tenant URL in Supabase settings.
   azure: { scopes: "email openid profile", label: "Microsoft Entra" },
 };
 
@@ -15,7 +14,7 @@ export async function signInWithProvider(provider: OAuthProvider): Promise<boole
   const cfg = OPTIONS[provider];
   const { error } = await supabase.auth.signInWithOAuth({
     provider,
-    options: { redirectTo: `${window.location.origin}/auth/success`, scopes: cfg.scopes },
+    options: { redirectTo: `${window.location.origin}/resolve`, scopes: cfg.scopes },
   });
   if (error) {
     toast.error(`${cfg.label}: ${error.message}`);
