@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import AuthLayout from "@/components/AuthLayout";
 import { motion } from "framer-motion";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { signInWithProvider } from "@/lib/oauth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
