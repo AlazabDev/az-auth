@@ -25,6 +25,7 @@ import AuditAdminPage from "./pages/admin/AuditAdminPage.tsx";
 import ApiGatewayPage from "./pages/admin/ApiGatewayPage.tsx";
 import DatabasePage from "./pages/admin/DatabasePage.tsx";
 import UsersAdminPage from "./pages/admin/UsersAdminPage.tsx";
+import AuthAgentAdminPage from "./pages/admin/AuthAgentAdminPage.tsx";
 import PortalRefreshPage from "./pages/portal/RefreshPage.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
@@ -67,13 +68,14 @@ const App = () => (
               <Route path="/portal/refresh" element={<PortalRefreshPage />} />
               <Route path="/admin" element={<AdminLayout />}>
                 <Route index element={<AdminOverviewPage />} />
+                <Route path="users" element={<UsersAdminPage />} />
+                <Route path="agent" element={<AuthAgentAdminPage />} />
                 <Route path="auth" element={<AuthAdminPage />} />
-                <Route path="webhooks" element={<WebhooksAdminPage />} />
                 <Route path="apps" element={<AppsAdminPage />} />
                 <Route path="audit" element={<AuditAdminPage />} />
                 <Route path="api" element={<ApiGatewayPage />} />
                 <Route path="database" element={<DatabasePage />} />
-                <Route path="users" element={<UsersAdminPage />} />
+                <Route path="webhooks" element={<WebhooksAdminPage />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
