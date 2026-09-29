@@ -1,0 +1,2 @@
+DROP POLICY IF EXISTS "Authenticated can read storage endpoints" ON public.storage_endpoints;
+CREATE POLICY "Admins can read storage endpoints" ON public.storage_endpoints FOR SELECT TO authenticated USING (public.is_admin());
