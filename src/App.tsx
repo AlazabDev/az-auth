@@ -1,18 +1,15 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import AzaBotWidget from "@/components/AzaBot/AzaBotWidget";
-import Index from "./pages/Index.tsx";
-import LoginPage from "./pages/LoginPage.tsx";
-import SignupPage from "./pages/SignupPage.tsx";
-import AuthLoginPage from "./pages/auth/AuthLoginPage.tsx";
-import CheckEmailPage from "./pages/auth/CheckEmailPage.tsx";
+import LoginPortalPage from "./pages/auth/LoginPortalPage.tsx";
+import SignupUnifiedPage from "./pages/auth/SignupUnifiedPage.tsx";
 import VerifyPage from "./pages/auth/VerifyPage.tsx";
-import SuccessPage from "./pages/auth/SuccessPage.tsx";
+import ResolvePage from "./pages/auth/ResolvePage.tsx";
 import OAuthConsentPage from "./pages/auth/OAuthConsentPage.tsx";
 import SettingsPage from "./pages/auth/SettingsPage.tsx";
 import SecurityPage from "./pages/auth/SecurityPage.tsx";
@@ -42,25 +39,33 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/signup/:type" element={<SignupPage />} />
-              <Route path="/auth/login" element={<AuthLoginPage />} />
-              <Route path="/auth/check-email" element={<CheckEmailPage />} />
-              <Route path="/auth/verify" element={<VerifyPage />} />
-              <Route path="/auth/success" element={<SuccessPage />} />
-              <Route path="/oauth/consent" element={<OAuthConsentPage />} />
-              <Route path="/auth/settings" element={<SettingsPage />} />
-              <Route path="/auth/security" element={<SecurityPage />} />
-              <Route path="/auth/sessions" element={<SecurityPage />} />
-              <Route path="/dashboard" element={<DashboardPage />} />
-              <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />
-              <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/" element={<LoginPortalPage />} />
+              <Route path="/signup" element={<SignupUnifiedPage />} />
+              <Route path="/verify" element={<VerifyPage />} />
+              <Route path="/resolve" element={<ResolvePage />} />
+              <Route path="/consent" element={<OAuthConsentPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/security" element={<SecurityPage />} />
+              <Route path="/sessions" element={<SecurityPage />} />
+
+              {/* Temporary compatibility redirects for previously published URLs. */}
+              <Route path="/login" element={<Navigate to="/" replace />} />
+              <Route path="/auth/login" element={<Navigate to="/" replace />} />
+              <Route path="/signup/:type" element={<Navigate to="/signup" replace />} />
+              <Route path="/auth/verify" element={<Navigate to="/verify" replace />} />
+              <Route path="/auth/success" element={<Navigate to="/resolve" replace />} />
+              <Route path="/oauth/consent" element={<OAuthConsentPage />} />
+              <Route path="/auth/settings" element={<Navigate to="/settings" replace />} />
+              <Route path="/auth/security" element={<Navigate to="/security" replace />} />
+              <Route path="/auth/sessions" element={<Navigate to="/sessions" replace />} />
+              <Route path="/auth/forgot-password" element={<Navigate to="/forgot-password" replace />} />
+              <Route path="/auth/reset-password" element={<Navigate to="/reset-password" replace />} />
+
+              <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/portal/refresh" element={<PortalRefreshPage />} />
               <Route path="/admin" element={<AdminLayout />}>
-
                 <Route index element={<AdminOverviewPage />} />
                 <Route path="auth" element={<AuthAdminPage />} />
                 <Route path="webhooks" element={<WebhooksAdminPage />} />
@@ -70,7 +75,6 @@ const App = () => (
                 <Route path="database" element={<DatabasePage />} />
                 <Route path="users" element={<UsersAdminPage />} />
               </Route>
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
