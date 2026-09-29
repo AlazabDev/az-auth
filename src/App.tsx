@@ -13,6 +13,7 @@ import AuthLoginPage from "./pages/auth/AuthLoginPage.tsx";
 import CheckEmailPage from "./pages/auth/CheckEmailPage.tsx";
 import VerifyPage from "./pages/auth/VerifyPage.tsx";
 import SuccessPage from "./pages/auth/SuccessPage.tsx";
+import OAuthConsentPage from "./pages/auth/OAuthConsentPage.tsx";
 import SettingsPage from "./pages/auth/SettingsPage.tsx";
 import SecurityPage from "./pages/auth/SecurityPage.tsx";
 import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage.tsx";
@@ -48,6 +49,7 @@ const App = () => (
               <Route path="/auth/check-email" element={<CheckEmailPage />} />
               <Route path="/auth/verify" element={<VerifyPage />} />
               <Route path="/auth/success" element={<SuccessPage />} />
+              <Route path="/oauth/consent" element={<OAuthConsentPage />} />
               <Route path="/auth/settings" element={<SettingsPage />} />
               <Route path="/auth/security" element={<SecurityPage />} />
               <Route path="/auth/sessions" element={<SecurityPage />} />
