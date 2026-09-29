@@ -12,9 +12,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { captureSsoTarget, fetchSsoApps, getSsoTarget, resolveSsoApp } from "@/lib/sso";
 import { toast } from "sonner";
 import { logAuthEvent } from "@/lib/audit";
-import { signInWithProvider, sendPhoneOtp } from "@/lib/oauth";
-import logoDark from "@/assets/az-s.png.asset.json";
-import logoLight from "@/assets/az-w.png.asset.json";
+import logoOnLight from "@/assets/brand/alazab-on-light.png";
+import logoOnDark from "@/assets/brand/alazab-on-dark.png";
 
 const particles = Array.from({ length: 12 }, (_, i) => ({
   x: `${Math.random() * 100}%`,
@@ -173,8 +172,8 @@ const AuthLoginPage = () => {
             className="relative w-40 h-40 mx-auto mb-10"
           >
             <div className="absolute inset-0 rounded-[2rem] bg-primary/20 blur-2xl animate-glow-pulse" />
-            <div className="relative w-full h-full rounded-[2rem] bg-white/[0.06] backdrop-blur-md border border-white/[0.12] shadow-2xl flex items-center justify-center p-5">
-              <img src={logoLight.url} alt="Alazab" className="w-full h-full object-contain drop-shadow-2xl" />
+            <div className="relative w-full h-full rounded-[2rem] bg-white/[0.08] backdrop-blur-md border border-white/[0.14] shadow-2xl flex items-center justify-center p-5 overflow-hidden">
+              <img src={logoOnDark} alt="Alazab" className="w-full h-full object-contain drop-shadow-2xl" />
             </div>
           </motion.div>
           <h2 className="font-heading text-4xl font-extrabold mb-5 leading-tight">{t("otp.login.title")}</h2>
@@ -215,11 +214,13 @@ const AuthLoginPage = () => {
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
-                className="relative w-20 h-20 mx-auto mb-5"
+                className="relative w-24 h-24 mx-auto mb-5"
               >
-                <div className="absolute inset-0 rounded-2xl bg-primary/10 blur-xl" />
-                <img src={logoDark.url} alt="Alazab" className="relative w-20 h-20 object-contain dark:hidden drop-shadow-md" />
-                <img src={logoLight.url} alt="Alazab" className="relative w-20 h-20 object-contain hidden dark:block drop-shadow-md" />
+                <div className="absolute inset-0 rounded-3xl bg-primary/10 blur-xl" />
+                <div className="relative w-24 h-24 rounded-3xl border border-border/60 bg-card shadow-xl p-2.5 overflow-hidden">
+                  <img src={logoOnLight} alt="Alazab" className="w-full h-full object-contain dark:hidden" />
+                  <img src={logoOnDark} alt="Alazab" className="w-full h-full object-contain hidden dark:block" />
+                </div>
               </motion.div>
               <h1 className="font-heading text-2xl font-extrabold text-foreground">{t("otp.login.title")}</h1>
               <p className="text-muted-foreground text-sm mt-2">{t("otp.login.subtitle")}</p>
