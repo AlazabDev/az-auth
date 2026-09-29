@@ -1,370 +1,110 @@
-import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
-import {
-  Plus, Pencil, Trash2, RefreshCw, CheckCircle2, XCircle, AlertTriangle,
-  Loader2, Shield, ExternalLink, Save, Wifi, WifiOff,
-} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ExternalLink, Loader2, RefreshCw, ShieldCheck, KeyRound, MessageCircle, Smartphone, Chrome, Building2, Facebook } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
-} from "@/components/ui/dialog";
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
-type Provider = {
+type ProviderRow = {
   id: string;
   key: string;
   label: string;
   type: string;
   enabled: boolean;
-  client_id: string | null;
-  client_secret: string | null;
-  extra: Record<string, unknown>;
   status: string;
   last_checked_at: string | null;
-  notes: string | null;
-  pre_auth_redirect_url: string | null;
-  post_auth_redirect_url: string | null;
-  scopes: string | null;
 };
 
-type FormState = {
-  id?: string;
-  key: string;
-  label: string;
-  type: string;
-  enabled: boolean;
-  client_id: string;
-  client_secret: string;
-  notes: string;
-  pre_auth_redirect_url: string;
-  post_auth_redirect_url: string;
-  scopes: string;
-};
-
-const emptyForm: FormState = {
-  key: "", label: "", type: "oauth", enabled: false,
-  client_id: "", client_secret: "", notes: "",
-  pre_auth_redirect_url: "", post_auth_redirect_url: "", scopes: "",
-};
-
-const statusMeta = (s: string) => {
-  switch (s) {
-    case "active": return { icon: CheckCircle2, label: "متصل", cls: "text-emerald-600 bg-emerald-500/10 border-emerald-500/20" };
-    case "inactive": return { icon: XCircle, label: "معطّل", cls: "text-muted-foreground bg-muted border-border" };
-    case "error": return { icon: AlertTriangle, label: "خطأ", cls: "text-destructive bg-destructive/10 border-destructive/20" };
-    case "checking": return { icon: Loader2, label: "جارٍ الفحص", cls: "text-amber-600 bg-amber-500/10 border-amber-500/20" };
-    default: return { icon: AlertTriangle, label: "غير معروف", cls: "text-muted-foreground bg-muted border-border" };
-  }
-};
+const fixedProviders = [
+  { key: "email", label: "Email + Password", icon: KeyRound, description: "المسار الأساسي لتسجيل الدخول." },
+  { key: "whatsapp", label: "WhatsApp OTP", icon: MessageCircle, description: "المسار البديل الأسرع للمستخدمين والفنيين." },
+  { key: "phone", label: "Phone OTP", icon: Smartphone, description: "SMS OTP للأجهزة والهواتف العادية." },
+  { key: "google", label: "Google", icon: Chrome, description: "دخول مباشر بحساب Google." },
+  { key: "azure", label: "Microsoft / Azure", icon: Building2, description: "مخصص أساساً للموظفين والعملاء المؤسسيين." },
+  { key: "facebook", label: "Facebook", icon: Facebook, description: "دخول مباشر بحساب Facebook." },
+] as const;
 
 const AuthAdminPage = () => {
-  const [rows, setRows] = useState<Provider[]>([]);
+  const [rows, setRows] = useState<ProviderRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState<FormState>(emptyForm);
-  const [saving, setSaving] = useState(false);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [checkingId, setCheckingId] = useState<string | null>(null);
+  const [updating, setUpdating] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("auth_providers")
-      .select("*")
-      .order("created_at", { ascending: true });
-    if (error) {
-      toast({ title: "تعذّر التحميل", description: error.message, variant: "destructive" });
-    } else {
-      setRows((data ?? []) as Provider[]);
-    }
+    const { data, error } = await supabase.from("auth_providers").select("id,key,label,type,enabled,status,last_checked_at");
+    if (error) toast.error(error.message);
+    else setRows((data ?? []) as ProviderRow[]);
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { void load(); }, []);
 
-  const openCreate = () => { setForm(emptyForm); setDialogOpen(true); };
-  const openEdit = (p: Provider) => {
-    setForm({
-      id: p.id, key: p.key, label: p.label, type: p.type, enabled: p.enabled,
-      client_id: p.client_id ?? "", client_secret: p.client_secret ?? "", notes: p.notes ?? "",
-      pre_auth_redirect_url: p.pre_auth_redirect_url ?? "",
-      post_auth_redirect_url: p.post_auth_redirect_url ?? "",
-      scopes: p.scopes ?? "",
-    });
-    setDialogOpen(true);
-  };
+  const byKey = useMemo(() => new Map(rows.map((r) => [r.key, r])), [rows]);
 
-  const save = async () => {
-    if (!form.key.trim() || !form.label.trim()) {
-      toast({ title: "بيانات ناقصة", description: "المفتاح والاسم مطلوبان", variant: "destructive" });
+  const toggle = async (key: string, enabled: boolean) => {
+    const row = byKey.get(key);
+    if (!row) {
+      toast.error(`المزوّد ${key} غير مسجل في auth_providers`);
       return;
     }
-    setSaving(true);
-    const payload = {
-      key: form.key.trim(), label: form.label.trim(), type: form.type, enabled: form.enabled,
-      client_id: form.client_id || null, client_secret: form.client_secret || null,
-      notes: form.notes || null,
-      pre_auth_redirect_url: form.pre_auth_redirect_url.trim() || null,
-      post_auth_redirect_url: form.post_auth_redirect_url.trim() || null,
-      scopes: form.scopes.trim() || null,
-    };
-    const q = form.id
-      ? supabase.from("auth_providers").update(payload).eq("id", form.id)
-      : supabase.from("auth_providers").insert(payload);
-    const { error } = await q;
-    setSaving(false);
-    if (error) {
-      toast({ title: "فشل الحفظ", description: error.message, variant: "destructive" });
-      return;
-    }
-    toast({ title: form.id ? "تم التحديث" : "تم الإنشاء" });
-    setDialogOpen(false);
-    load();
-  };
-
-  const toggleEnabled = async (p: Provider, v: boolean) => {
-    const { error } = await supabase.from("auth_providers").update({ enabled: v }).eq("id", p.id);
-    if (error) return toast({ title: "فشل التحديث", description: error.message, variant: "destructive" });
-    setRows((r) => r.map((x) => x.id === p.id ? { ...x, enabled: v } : x));
-  };
-
-  const confirmDelete = async () => {
-    if (!deleteId) return;
-    const { error } = await supabase.from("auth_providers").delete().eq("id", deleteId);
-    setDeleteId(null);
-    if (error) return toast({ title: "فشل الحذف", description: error.message, variant: "destructive" });
-    toast({ title: "تم الحذف" });
-    load();
-  };
-
-  const checkStatus = async (p: Provider) => {
-    setCheckingId(p.id);
-    await supabase.from("auth_providers").update({ status: "checking" }).eq("id", p.id);
-    setRows((r) => r.map((x) => x.id === p.id ? { ...x, status: "checking" } : x));
-
-    let status = "inactive";
-    try {
-      if (!p.enabled) {
-        status = "inactive";
-      } else if (p.type === "oauth") {
-        status = p.client_id && p.client_secret ? "active" : "error";
-      } else if (p.type === "otp") {
-        status = "active";
-      } else {
-        status = "unknown";
-      }
-    } catch { status = "error"; }
-
-    const { error } = await supabase.from("auth_providers")
-      .update({ status, last_checked_at: new Date().toISOString() })
-      .eq("id", p.id);
-    setCheckingId(null);
-    if (error) return toast({ title: "فشل الفحص", description: error.message, variant: "destructive" });
-    setRows((r) => r.map((x) => x.id === p.id ? { ...x, status, last_checked_at: new Date().toISOString() } : x));
+    setUpdating(key);
+    const { error } = await supabase.from("auth_providers").update({ enabled }).eq("id", row.id);
+    setUpdating(null);
+    if (error) return toast.error(error.message);
+    setRows((current) => current.map((r) => r.id === row.id ? { ...r, enabled } : r));
+    toast.success(enabled ? "تم التفعيل" : "تم التعطيل");
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-7">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="font-heading font-extrabold text-3xl">مزوّدو المصادقة</h1>
-          <p className="text-muted-foreground mt-2 text-sm">إنشاء وتعديل وحذف المزوّدين ومراقبة حالة الاتصال.</p>
+          <div className="flex items-center gap-2 text-primary mb-2"><ShieldCheck className="w-5 h-5" /><span className="text-sm font-bold">Authentication Providers</span></div>
+          <h1 className="font-heading text-3xl font-extrabold">المصادقة والمزوّدون</h1>
+          <p className="text-sm text-muted-foreground mt-2 max-w-2xl">المزوّدون ثابتون حسب سياسة العزب. هذه الشاشة للتشغيل والمراجعة فقط، وليس لإنشاء مزوّدين عشوائيين أو تخزين أسرارهم في الواجهة.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={load} className="gap-2">
-            <RefreshCw className="w-4 h-4" />تحديث
-          </Button>
-          <Button asChild variant="outline" className="gap-2">
-            <a href="https://supabase.com/dashboard/project/bxuhcbfdoaflsgbxiqei/auth/providers" target="_blank" rel="noreferrer">
-              <ExternalLink className="w-4 h-4" />Supabase
-            </a>
-          </Button>
-          <Button onClick={openCreate} className="gap-2">
-            <Plus className="w-4 h-4" />مزوّد جديد
+          <Button variant="outline" onClick={() => void load()} className="gap-2"><RefreshCw className="w-4 h-4" />تحديث</Button>
+          <Button variant="outline" asChild className="gap-2">
+            <a href="https://supabase.com/dashboard/project/bxuhcbfdoaflsgbxiqei/auth/providers" target="_blank" rel="noreferrer"><ExternalLink className="w-4 h-4" />إعداد Supabase</a>
           </Button>
         </div>
       </div>
 
-      <motion.section
-        initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-        className="bg-card rounded-2xl border border-border/50 overflow-hidden"
-      >
-        <div className="p-5 border-b border-border/50 flex items-center gap-2">
-          <Shield className="w-5 h-5 text-primary" />
-          <h3 className="font-heading font-bold text-lg">القائمة</h3>
-          <span className="text-xs text-muted-foreground ms-2">{rows.length} مزوّد</span>
-        </div>
-
+      <section className="rounded-2xl border border-border/60 bg-card overflow-hidden">
         {loading ? (
-          <div className="p-10 text-center text-muted-foreground text-sm">
-            <Loader2 className="w-5 h-5 animate-spin inline me-2" />جارٍ التحميل...
-          </div>
-        ) : rows.length === 0 ? (
-          <div className="p-10 text-center text-muted-foreground text-sm">
-            لا يوجد مزوّدون. اضغط "مزوّد جديد" للبدء.
-          </div>
+          <div className="p-12 grid place-items-center"><Loader2 className="w-5 h-5 animate-spin text-primary" /></div>
         ) : (
-          <ul className="divide-y divide-border/50">
-            {rows.map((p) => {
-              const meta = statusMeta(checkingId === p.id ? "checking" : p.status);
-              const I = meta.icon;
+          <div className="divide-y divide-border/60">
+            {fixedProviders.map((provider) => {
+              const row = byKey.get(provider.key);
+              const enabled = row?.enabled ?? false;
+              const Icon = provider.icon;
               return (
-                <li key={p.id} className="p-4 flex items-center gap-4 hover:bg-muted/30">
-                  <div className="w-11 h-11 rounded-xl grid place-items-center bg-muted/50 border border-border/50">
-                    {p.enabled ? <Wifi className="w-5 h-5 text-primary" /> : <WifiOff className="w-5 h-5 text-muted-foreground" />}
-                  </div>
+                <div key={provider.key} className="p-5 flex items-center gap-4">
+                  <div className="w-11 h-11 rounded-xl bg-primary/10 text-primary grid place-items-center shrink-0"><Icon className="w-5 h-5" /></div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-semibold text-sm">{p.label}</p>
-                      <span className="text-[10px] px-2 py-0.5 rounded bg-muted text-muted-foreground font-mono">{p.key}</span>
-                      <span className="text-[10px] px-2 py-0.5 rounded bg-primary/10 text-primary">{p.type}</span>
+                      <h3 className="font-bold text-sm">{provider.label}</h3>
+                      {provider.key === "email" && <span className="text-[10px] font-bold rounded-full bg-primary/10 text-primary px-2 py-0.5">الأساسي</span>}
+                      {!row && <span className="text-[10px] rounded-full bg-amber-500/10 text-amber-600 px-2 py-0.5">غير مسجل</span>}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {p.last_checked_at ? `آخر فحص: ${new Date(p.last_checked_at).toLocaleString("ar-EG")}` : "لم يتم الفحص بعد"}
-                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">{provider.description}</p>
+                    {row?.last_checked_at && <p className="text-[10px] text-muted-foreground mt-1">آخر فحص: {new Date(row.last_checked_at).toLocaleString("ar-EG")}</p>}
                   </div>
-                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${meta.cls}`}>
-                    <I className={`w-3 h-3 ${checkingId === p.id ? "animate-spin" : ""}`} />
-                    {meta.label}
-                  </span>
-                  <Switch checked={p.enabled} onCheckedChange={(v) => toggleEnabled(p, v)} />
-                  <Button size="icon" variant="ghost" onClick={() => checkStatus(p)} title="فحص الاتصال">
-                    <RefreshCw className={`w-4 h-4 ${checkingId === p.id ? "animate-spin" : ""}`} />
-                  </Button>
-                  <Button size="icon" variant="ghost" onClick={() => openEdit(p)} title="تعديل">
-                    <Pencil className="w-4 h-4" />
-                  </Button>
-                  <Button size="icon" variant="ghost" className="text-destructive" onClick={() => setDeleteId(p.id)} title="حذف">
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </li>
+                  <div className="flex items-center gap-3">
+                    <span className={`text-xs font-semibold ${enabled ? "text-emerald-600" : "text-muted-foreground"}`}>{enabled ? "مفعّل" : "متوقف"}</span>
+                    {updating === provider.key ? <Loader2 className="w-4 h-4 animate-spin" /> : <Switch checked={enabled} disabled={!row} onCheckedChange={(v) => void toggle(provider.key, v)} />}
+                  </div>
+                </div>
               );
             })}
-          </ul>
-        )}
-      </motion.section>
-
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{form.id ? "تعديل مزوّد" : "مزوّد جديد"}</DialogTitle>
-            <DialogDescription>حدّد مفتاح ونوع المزوّد وأدخل بيانات الاعتماد إن وُجدت.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>المفتاح</Label>
-                <Input
-                  placeholder="google"
-                  value={form.key}
-                  onChange={(e) => setForm({ ...form, key: e.target.value })}
-                  disabled={!!form.id}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>الاسم الظاهر</Label>
-                <Input placeholder="Google" value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>النوع</Label>
-                <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="oauth">OAuth</SelectItem>
-                    <SelectItem value="otp">OTP</SelectItem>
-                    <SelectItem value="saml">SAML</SelectItem>
-                    <SelectItem value="custom">مخصص</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>مفعّل</Label>
-                <div className="h-10 flex items-center px-3 rounded-md border border-input">
-                  <Switch checked={form.enabled} onCheckedChange={(v) => setForm({ ...form, enabled: v })} />
-                  <span className="ms-3 text-sm text-muted-foreground">{form.enabled ? "نعم" : "لا"}</span>
-                </div>
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Client ID</Label>
-              <Input value={form.client_id} onChange={(e) => setForm({ ...form, client_id: e.target.value })} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Client Secret</Label>
-              <Input type="password" value={form.client_secret} onChange={(e) => setForm({ ...form, client_secret: e.target.value })} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>رابط ما قبل المصادقة (Pre-Auth URL)</Label>
-              <Input
-                dir="ltr"
-                placeholder="https://auth.alazab.com/auth/login"
-                value={form.pre_auth_redirect_url}
-                onChange={(e) => setForm({ ...form, pre_auth_redirect_url: e.target.value })}
-              />
-              <p className="text-[11px] text-muted-foreground">وجهة توجيه المستخدم قبل بدء تدفّق تسجيل الدخول.</p>
-            </div>
-            <div className="space-y-1.5">
-              <Label>رابط ما بعد المصادقة (Post-Auth URL)</Label>
-              <Input
-                dir="ltr"
-                placeholder="https://auth.alazab.com/dashboard"
-                value={form.post_auth_redirect_url}
-                onChange={(e) => setForm({ ...form, post_auth_redirect_url: e.target.value })}
-              />
-              <p className="text-[11px] text-muted-foreground">وجهة إعادة التوجيه بعد نجاح المصادقة.</p>
-            </div>
-            <div className="space-y-1.5">
-              <Label>النطاقات (Scopes)</Label>
-              <Input
-                dir="ltr"
-                placeholder="openid email profile"
-                value={form.scopes}
-                onChange={(e) => setForm({ ...form, scopes: e.target.value })}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>ملاحظات</Label>
-              <Textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-            </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>إلغاء</Button>
-            <Button onClick={save} disabled={saving} className="gap-2">
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              حفظ
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        )}
+      </section>
 
-      <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>حذف المزوّد؟</AlertDialogTitle>
-            <AlertDialogDescription>لا يمكن التراجع عن هذا الإجراء.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>إلغاء</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground">حذف</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <div className="rounded-xl p-4 border border-amber-500/30 bg-amber-500/5 text-sm text-muted-foreground flex gap-3">
-        <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
-        <p>تفعيل المزوّد فعليّاً في تدفّق المصادقة يتطلّب أيضاً ضبطه في لوحة Supabase Dashboard.</p>
+      <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 text-sm leading-7">
+        <strong>قاعدة التشغيل:</strong> Email + Password هو الدخول الأساسي. WhatsApp وPhone OTP بدائل دخول مستقلة. Google وMicrosoft وFacebook OAuth. إعداد Client IDs / Secrets يتم في Supabase أو مزود الهوية، وليس داخل جدول واجهة الإدارة.
       </div>
     </div>
   );
