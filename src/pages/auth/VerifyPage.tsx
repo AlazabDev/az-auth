@@ -57,7 +57,7 @@ const VerifyPage = () => {
     try {
       const { error } = await supabase.auth.signInWithOtp(
         phone
-          ? { phone }
+          ? { phone, options: { channel: (searchParams.get("channel") === "whatsapp" ? "whatsapp" : "sms") } }
           : { email, options: { emailRedirectTo: `${window.location.origin}/auth/success` } }
       );
       if (error) throw error;
