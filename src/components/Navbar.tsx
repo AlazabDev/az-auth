@@ -5,8 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useLanguage } from "@/contexts/LanguageContext";
-import logoDark from "@/assets/az-s.png.asset.json";
-import logoLight from "@/assets/az-w.png.asset.json";
+import logoDark from "@/assets/brand/alazab-on-light.png";
+import logoLight from "@/assets/brand/alazab-on-dark.png";
 
 const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -39,7 +39,7 @@ const Navbar = () => {
           <div className="relative w-12 h-12 flex items-center justify-center transition-transform duration-300 group-hover:scale-105">
             <div className="absolute inset-0 rounded-2xl bg-primary/15 blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             <img
-              src={theme === "dark" ? logoLight.url : logoDark.url}
+              src={theme === "dark" ? logoLight : logoDark}
               alt="Alazab"
               className="relative w-12 h-12 object-contain drop-shadow-md"
             />
@@ -50,7 +50,6 @@ const Navbar = () => {
           </div>
         </Link>
 
-        {/* Desktop Links */}
         <div className="hidden md:flex items-center gap-0.5">
           {navLinks.map((link) => (
             <a
@@ -81,7 +80,6 @@ const Navbar = () => {
           </Button>
         </div>
 
-        {/* Mobile */}
         <div className="md:hidden flex items-center gap-1">
           <Button variant="ghost" size="icon" className="text-muted-foreground rounded-xl" onClick={toggleTheme}>
             {theme === "light" ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
