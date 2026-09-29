@@ -15,6 +15,13 @@ const SuccessPage = () => {
   const [appName, setAppName] = useState<string | null>(null);
 
   useEffect(() => {
+    const oauthReturnTo = sessionStorage.getItem("alazab_oauth_return_to");
+    if (oauthReturnTo) {
+      sessionStorage.removeItem("alazab_oauth_return_to");
+      navigate(oauthReturnTo, { replace: true });
+      return;
+    }
+
     let cancelled = false;
     let destination: string | null = null;
 
