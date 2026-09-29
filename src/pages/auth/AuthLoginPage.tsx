@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { captureSsoTarget, fetchSsoApps, getSsoTarget, resolveSsoApp } from "@/lib/sso";
 import { toast } from "sonner";
 import { logAuthEvent } from "@/lib/audit";
+import { signInWithProvider, sendPhoneOtp } from "@/lib/oauth";
 import logoDark from "@/assets/az-s.png.asset.json";
 import logoLight from "@/assets/az-w.png.asset.json";
 
@@ -44,6 +45,8 @@ const AuthLoginPage = () => {
   const [phoneLoading, setPhoneLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [azureLoading, setAzureLoading] = useState(false);
+  const [facebookLoading, setFacebookLoading] = useState(false);
+  const [tab, setTab] = useState("email");
   const [targetApp, setTargetApp] = useState<string | null>(null);
   const Arrow = dir === "rtl" ? ArrowRight : ArrowLeft;
 
@@ -99,18 +102,13 @@ const AuthLoginPage = () => {
     }
   };
 
-  const handlePhoneOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handlePhoneOtp = async (e?: React.FormEvent, channel: "sms" | "whatsapp" = "sms") => {
+    e?.preventDefault();
     if (!phone) return;
     setPhoneLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        phone,
-        options: { shouldCreateUser: true },
-      });
-      if (error) throw error;
-      await logAuthEvent({ event: "otp_requested", description: "Phone one-time code requested", detail: { channel: "sms" } });
-      navigate(`/auth/verify?phone=${encodeURIComponent(phone)}`);
+      const normalized = await sendPhoneOtp(phone, channel);
+      navigate(`/auth/verify?phone=${encodeURIComponent(normalized)}&channel=${channel}`);
     } catch (err: any) {
       toast.error(err.message || "Error sending SMS");
     } finally {
@@ -134,8 +132,10 @@ const AuthLoginPage = () => {
     }
   };
 
-  const handleDisabledProvider = () => {
-    toast.info(t("auth.providerDisabled"));
+  const handleFacebookLogin = async () => {
+    setFacebookLoading(true);
+    const ok = await signInWithProvider("facebook");
+    if (!ok) setFacebookLoading(false);
   };
 
   return (
@@ -278,18 +278,19 @@ const AuthLoginPage = () => {
               <Button
                 type="button"
                 variant="outline"
-                onClick={handleDisabledProvider}
-                className="relative h-12 rounded-xl border-2 opacity-60 hover:opacity-80 cursor-not-allowed"
-                title={`Facebook - ${t("auth.comingSoon")}`}
+                onClick={handleFacebookLogin}
+                disabled={facebookLoading}
+                className="h-12 rounded-xl border-2 hover:border-primary/30 hover:bg-muted/50 transition-all"
+                title="Facebook"
               >
-                <FacebookIcon />
+                {facebookLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <FacebookIcon />}
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                onClick={handleDisabledProvider}
-                className="relative h-12 rounded-xl border-2 opacity-60 hover:opacity-80 cursor-not-allowed"
-                title={`WhatsApp - ${t("auth.comingSoon")}`}
+                onClick={() => setTab("phone")}
+                className="h-12 rounded-xl border-2 hover:border-primary/30 hover:bg-muted/50 transition-all"
+                title="WhatsApp"
               >
                 <WhatsAppIcon />
               </Button>
@@ -302,7 +303,7 @@ const AuthLoginPage = () => {
             </div>
 
             {/* Email / Phone Tabs */}
-            <Tabs defaultValue="email" className="w-full">
+            <Tabs value={tab} onValueChange={setTab} className="w-full">
               <TabsList className="grid grid-cols-2 w-full h-11 rounded-xl">
                 <TabsTrigger value="email" className="gap-2 rounded-lg"><Mail className="w-4 h-4" /> {t("auth.tabEmail")}</TabsTrigger>
                 <TabsTrigger value="phone" className="gap-2 rounded-lg"><Smartphone className="w-4 h-4" /> {t("auth.tabPhone")}</TabsTrigger>
@@ -360,17 +361,24 @@ const AuthLoginPage = () => {
                     </div>
                   </div>
 
-                  <Button
-                    type="submit"
-                    disabled={phoneLoading || !phone}
-                    className="w-full h-13 text-base rounded-xl shadow-md hover:shadow-lg transition-all duration-300 font-bold bg-primary text-primary-foreground hover:bg-primary/90 glow-primary"
-                  >
-                    {phoneLoading ? (
-                      <><Loader2 className="w-4 h-4 animate-spin" /> {t("otp.login.sending")}</>
-                    ) : (
-                      <>{t("auth.phone.send")} <Sparkles className="w-4 h-4" /></>
-                    )}
-                  </Button>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button
+                      type="submit"
+                      disabled={phoneLoading || !phone}
+                      className="h-13 text-base rounded-xl shadow-md font-bold bg-primary text-primary-foreground hover:bg-primary/90"
+                    >
+                      {phoneLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Smartphone className="w-4 h-4" /> SMS</>}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => handlePhoneOtp(undefined, "whatsapp")}
+                      disabled={phoneLoading || !phone}
+                      className="h-13 text-base rounded-xl border-2 font-bold"
+                    >
+                      <WhatsAppIcon /> {t("auth.whatsapp")}
+                    </Button>
+                  </div>
                 </form>
               </TabsContent>
             </Tabs>
