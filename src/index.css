@@ -30,6 +30,9 @@
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
+    --health-success: 151 65% 30%;
+    --health-warning: 35 85% 33%;
+
     --border: 236 15% 88%;
     --input: 236 15% 88%;
     --ring: 44 100% 50%;
@@ -54,6 +57,8 @@
   }
 
   .dark {
+    --health-success: 151 65% 62%;
+    --health-warning: 44 90% 65%;
     --background: 236 93% 5%;
     --foreground: 44 15% 92%;
 
@@ -115,6 +120,8 @@
 }
 
 @layer utilities {
+  .text-health-success { color: hsl(var(--health-success)); }
+  .text-health-warning { color: hsl(var(--health-warning)); }
   .font-heading {
     font-family: 'IBM Plex Sans Arabic', 'Almarai', sans-serif;
   }
