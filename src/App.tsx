@@ -22,6 +22,7 @@ import DashboardPage from "./pages/DashboardPage.tsx";
 import AdminLayout from "./pages/admin/AdminLayout.tsx";
 import AdminOverviewPage from "./pages/admin/AdminOverviewPage.tsx";
 import AuthAdminPage from "./pages/admin/AuthAdminPage.tsx";
+import AuthHealthPage from "./pages/admin/AuthHealthPage.tsx";
 import WebhooksAdminPage from "./pages/admin/WebhooksAdminPage.tsx";
 import AppsAdminPage from "./pages/admin/AppsAdminPage.tsx";
 import AuditAdminPage from "./pages/admin/AuditAdminPage.tsx";
@@ -63,6 +64,7 @@ const App = () => (
 
                 <Route index element={<AdminOverviewPage />} />
                 <Route path="auth" element={<AuthAdminPage />} />
+                <Route path="settings" element={<AuthHealthPage />} />
                 <Route path="webhooks" element={<WebhooksAdminPage />} />
                 <Route path="apps" element={<AppsAdminPage />} />
                 <Route path="audit" element={<AuditAdminPage />} />
