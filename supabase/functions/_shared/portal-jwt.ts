@@ -59,7 +59,7 @@ export async function verifyPortalJwt(
   const ok = await crypto.subtle.verify(
     "HMAC",
     await key(secret),
-    b64urlDecode(parts[2]),
+    b64urlDecode(parts[2]) as BufferSource,
     encoder.encode(data),
   );
   if (!ok) return { valid: false, reason: "bad_signature" };

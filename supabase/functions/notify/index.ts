@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
       _detail: { target_user: targetId, category, level, channels, email_status: emailStatus, channel: "notify" },
       _ip_address: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
       _user_agent: (req.headers.get("user-agent") ?? "").slice(0, 400),
-    }).catch?.(() => {});
+    }).then(() => {}, () => {});
 
     return json({ ok: true, data: { id: row.id, email_status: emailStatus } });
   } catch (e) {
