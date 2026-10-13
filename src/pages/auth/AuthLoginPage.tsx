@@ -10,6 +10,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 
 import { captureSsoTarget, fetchSsoApps, getSsoTarget, resolveSsoApp } from "@/lib/sso";
+import { signInWithProvider, sendPhoneOtp } from "@/lib/oauth";
 import { toast } from "sonner";
 import { logAuthEvent } from "@/lib/audit";
 import logoOnLight from "@/assets/brand/alazab-on-light.png";

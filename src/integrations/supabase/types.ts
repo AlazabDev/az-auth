@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.1"
   }
   public: {
     Tables: {
@@ -562,6 +562,100 @@ export type Database = {
           table_name?: string
         }
         Relationships: []
+      }
+      auf_financial_receipts: {
+        Row: {
+          approved_at: string
+          branch: string
+          created_at: string
+          eta_document_id: string | null
+          eta_submission_id: string | null
+          id: string
+          items: Json
+          lifecycle_status: string
+          net_total: number
+          receipt_code: string
+          receipt_id: number
+          review_id: string
+          session_id: string
+          subtotal: number
+          tax_status: string
+          updated_at: string
+          vat_amount: number
+          vat_rate: number
+          withholding_amount: number
+          withholding_rate: number
+          work_date: string
+        }
+        Insert: {
+          approved_at: string
+          branch: string
+          created_at?: string
+          eta_document_id?: string | null
+          eta_submission_id?: string | null
+          id?: string
+          items: Json
+          lifecycle_status?: string
+          net_total: number
+          receipt_code: string
+          receipt_id: number
+          review_id: string
+          session_id: string
+          subtotal: number
+          tax_status?: string
+          updated_at?: string
+          vat_amount: number
+          vat_rate?: number
+          withholding_amount: number
+          withholding_rate?: number
+          work_date: string
+        }
+        Update: {
+          approved_at?: string
+          branch?: string
+          created_at?: string
+          eta_document_id?: string | null
+          eta_submission_id?: string | null
+          id?: string
+          items?: Json
+          lifecycle_status?: string
+          net_total?: number
+          receipt_code?: string
+          receipt_id?: number
+          review_id?: string
+          session_id?: string
+          subtotal?: number
+          tax_status?: string
+          updated_at?: string
+          vat_amount?: number
+          vat_rate?: number
+          withholding_amount?: number
+          withholding_rate?: number
+          work_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auf_financial_receipts_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "auf_maintenance_receipts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auf_financial_receipts_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: true
+            referencedRelation: "auf_receipt_reviews"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auf_financial_receipts_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "auf_review_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       auf_maintenance_receipts: {
         Row: {
@@ -3878,7 +3972,7 @@ export type Database = {
           is_active: boolean
           label: string | null
           last_opened_at: string | null
-          max_devices: number
+          max_devices: number | null
           open_count: number
           permissions: string[]
           resource: string
@@ -3894,7 +3988,7 @@ export type Database = {
           is_active?: boolean
           label?: string | null
           last_opened_at?: string | null
-          max_devices?: number
+          max_devices?: number | null
           open_count?: number
           permissions?: string[]
           resource: string
@@ -3910,7 +4004,7 @@ export type Database = {
           is_active?: boolean
           label?: string | null
           last_opened_at?: string | null
-          max_devices?: number
+          max_devices?: number | null
           open_count?: number
           permissions?: string[]
           resource?: string
