@@ -31,7 +31,7 @@ export default tseslint.config(
       "src/pages/auth/AuthLoginPage.tsx",
       "src/pages/auth/ForgotPasswordPage.tsx",
       "src/pages/auth/ResetPasswordPage.tsx",
-      "supabase/functions/azabot-chat/index.ts",
+      "supabase/functions/**/*.{ts,js}",
     ],
     rules: {
       "@typescript-eslint/no-explicit-any": "off",

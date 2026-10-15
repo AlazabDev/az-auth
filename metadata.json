@@ -1,0 +1,5 @@
+{
+  "name": "بوابة العزب للمصادقة | Alazab Auth",
+  "description": "بوابة المصادقة المركزية لمنصات مجموعة العزب — تسجيل دخول موحد وآمن لجميع الخدمات.",
+  "capabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
