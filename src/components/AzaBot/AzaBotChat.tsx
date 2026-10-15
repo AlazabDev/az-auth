@@ -46,6 +46,37 @@ const AzaBotChat = () => {
   const [showServices, setShowServices] = useState(false);
   const [pendingAttachment, setPendingAttachment] = useState<Attachment | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [pendingOtp, setPendingOtp] = useState<{ kind: "email" | "whatsapp"; target: string } | null>(null);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpBusy, setOtpBusy] = useState(false);
+  const [otpError, setOtpError] = useState("");
+
+  const verifyCode = async () => {
+    if (!pendingOtp || !/^\d{6,8}$/.test(otpCode.trim())) {
+      setOtpError(lang === "ar" ? "أدخل الرمز المكوّن من 6 أرقام" : "Enter the 6-digit code");
+      return;
+    }
+    setOtpBusy(true);
+    setOtpError("");
+    const token = otpCode.trim();
+    const { error } = pendingOtp.kind === "email"
+      ? await supabase.auth.verifyOtp({ email: pendingOtp.target, token, type: "email" })
+      : await supabase.auth.verifyOtp({ phone: pendingOtp.target, token, type: "sms" });
+    setOtpBusy(false);
+    if (error) {
+      setOtpError(lang === "ar" ? "الرمز غير صحيح أو منتهي. حاول مرة أخرى." : "Invalid or expired code. Try again.");
+      return;
+    }
+    setPendingOtp(null);
+    setOtpCode("");
+    setMessages((prev) => [...prev, {
+      id: Date.now().toString(),
+      role: "assistant",
+      content: lang === "ar"
+        ? "✅ تم التحقق من هويتك بنجاح. اشرح لي مشكلتك وسأساعدك في حلها خطوة بخطوة."
+        : "✅ You're verified. Tell me about your issue and I'll help you solve it step by step.",
+    }]);
+  };
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const recognitionRef = useRef<any>(null);
@@ -100,6 +131,7 @@ const AzaBotChat = () => {
         content: data.reply || t("azabot.error"),
       };
       setMessages((prev) => [...prev, botMsg]);
+      if (data.otp?.target) { setPendingOtp(data.otp); setOtpCode(""); setOtpError(""); }
 
       if (activeTab === "voice") playTTS(botMsg.content, botMsg.id);
     } catch (err) {
@@ -402,6 +434,34 @@ const AzaBotChat = () => {
 
         <div ref={messagesEndRef} />
       </div>
+
+      {pendingOtp && (
+        <div className="px-3 py-2 border-t border-border bg-amber-50/50 dark:bg-amber-950/10">
+          <p className="text-xs text-muted-foreground mb-1.5">
+            {lang === "ar" ? `أدخل الرمز المرسل عبر ${pendingOtp.kind === "email" ? "البريد" : "واتساب"} إلى ${pendingOtp.target}` : `Enter the code sent via ${pendingOtp.kind === "email" ? "email" : "WhatsApp"} to ${pendingOtp.target}`}
+          </p>
+          <div className="flex items-center gap-1.5">
+            <input
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={8}
+              value={otpCode}
+              onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
+              onKeyDown={(e) => e.key === "Enter" && verifyCode()}
+              className="flex-1 min-w-0 bg-background rounded-full px-3.5 py-1.5 text-sm tracking-[0.4em] text-center outline-none focus:ring-2 focus:ring-amber-500/50"
+              placeholder="••••••"
+              aria-label="Verification code"
+            />
+            <button onClick={verifyCode} disabled={otpBusy} className="px-3 py-1.5 rounded-full bg-amber-500 text-white text-xs hover:bg-amber-600 disabled:opacity-50">
+              {otpBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : lang === "ar" ? "تحقق" : "Verify"}
+            </button>
+            <button onClick={() => setPendingOtp(null)} className="text-muted-foreground hover:text-destructive" aria-label="Cancel">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          {otpError && <p className="text-xs text-destructive mt-1">{otpError}</p>}
+        </div>
+      )}
 
       {/* Pending Attachment Preview */}
       {pendingAttachment && (
