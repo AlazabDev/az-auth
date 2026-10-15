@@ -111,12 +111,14 @@ Deno.serve(async (req) => {
   // we resolve the user for logging; anonymous visitors are allowed.
   const authHeader = req.headers.get('Authorization')
   let userId: string | null = null
+  let userLabel = ''
   if (authHeader?.startsWith('Bearer ')) {
     try {
       const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
       const token = authHeader.replace('Bearer ', '')
       const { data: userData } = await supabase.auth.getUser(token)
       userId = userData?.user?.id ?? null
+      userLabel = userData?.user?.email ?? userData?.user?.phone ?? ''
     } catch {
       userId = null
     }
@@ -145,15 +147,18 @@ Deno.serve(async (req) => {
       }
     }
 
+    const identityNote = userId
+      ? `حالة المستخدم: موثّق ✅ (${userLabel}). لا تطلب رمزًا مرة أخرى؛ ساعده مباشرة في حل مشكلته.`
+      : 'حالة المستخدم: غير موثّق بعد. اطلب التحقق قبل المساعدة في أي أمر يخص الحساب.'
+
     const input = [
-      { type: 'message', role: 'user', content: TOOL_SYSTEM_PROMPT },
+      { type: 'message', role: 'user', content: TOOL_SYSTEM_PROMPT + '\n\n' + identityNote },
       ...messages.map((m: { role: string; content: string }) => ({
         type: 'message',
         role: m.role === 'system' ? 'user' : m.role,
         content: m.content,
       })),
     ]
-
 
     const res = await fetch(`${FOUNDRY_ENDPOINT}/openai/v1/responses`, {
       method: 'POST',
@@ -177,25 +182,33 @@ Deno.serve(async (req) => {
 
     const data = await res.json()
     let reply = extractText(data) || 'عذراً، لم أتمكن من المعالجة.'
+    let otp: OtpTarget | null = null
 
-    // Tool call: agent requests sending a verification code
     const call = reply.match(/<<SEND_OTP:(\{[\s\S]*?\})>>/)
     if (call) {
       const lastUser = [...messages].reverse().find((m: any) => m.role === 'user')?.content ?? ''
       const lang: 'ar' | 'en' = /[\u0600-\u06FF]/.test(lastUser) ? 'ar' : 'en'
-      let email: unknown
-      try { email = JSON.parse(call[1])?.email } catch { email = undefined }
+      let args: any = {}
+      try { args = JSON.parse(call[1]) ?? {} } catch { args = {} }
+      const phone = typeof args.phone === 'string' ? args.phone.replace(/[\s-]/g, '') : undefined
+      const prefix = reply.replace(call[0], '').trim()
 
-      if (!isEmail(email)) {
+      let target: OtpTarget | null = null
+      if (isPhone(phone)) target = { kind: 'whatsapp', target: phone }
+      else if (isEmail(args.email)) target = { kind: 'email', target: args.email.toLowerCase() }
+
+      if (!target) {
         reply = lang === 'ar'
-          ? 'من فضلك أرسل بريدًا إلكترونيًا صحيحًا لأرسل إليه رمز التحقق.'
-          : 'Please provide a valid email address so I can send the verification code.'
+          ? 'من فضلك أرسل بريدًا صحيحًا أو رقم واتساب بالصيغة الدولية (مثل +2010...) لأرسل إليه الرمز.'
+          : 'Please share a valid email or a WhatsApp number in international format (e.g. +2010...).'
       } else {
-        reply = (reply.replace(call[0], '').trim() + '\n\n' + await sendOtp(email, lang)).trim()
+        const r = await sendOtp(target, lang)
+        reply = (prefix + '\n\n' + r.text).trim()
+        if (r.ok) otp = target
       }
     }
 
-    return json({ reply, agent: AGENT_NAME })
+    return json({ reply, otp, verified: !!userId, agent: AGENT_NAME })
 
   } catch (error) {
     console.error('AzaBot agent error:', error)
