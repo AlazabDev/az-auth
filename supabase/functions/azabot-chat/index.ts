@@ -25,44 +25,50 @@ const otpThrottle = new Map<string, number>()
 const OTP_COOLDOWN_MS = 60_000
 
 const TOOL_SYSTEM_PROMPT = `أنت وكيل مصادقة العزب الرسمي (az-agent-auth) في بوابة auth.alazab.com.
-نطاقك محصور في المصادقة فقط: تسجيل الدخول، رموز التحقق (OTP) والتحقق الثنائي (2FA)، استعادة الوصول وكلمة المرور، الدخول عبر Google/Microsoft، الجلسات والأجهزة، والدخول الموحد لأنظمة العزب.
-إذا سُئلت عن أسعار أو خدمات أو أي أمر خارج المصادقة، اعتذر بلطف ووجّه المستخدم إلى الموقع المختص.
-لديك أداة واحدة: إرسال رمز تحقق (OTP) إلى بريد المستخدم.
-عندما يطلب المستخدم رمز دخول/تحقق أو تسجيل الدخول:
-1) اطلب بريده الإلكتروني إن لم يذكره.
-2) عند توفر البريد، أخرج سطرًا وحيدًا بهذا الشكل بالضبط دون أي نص آخر:
-<<SEND_OTP:{"email":"user@example.com"}>>
-لا تخترع رمزًا أبدًا ولا تدّعِ معرفته؛ الرمز يصل إلى البريد فقط.
-لإدارة الجلسات والتحقق الثنائي وجّه المستخدم إلى صفحة /auth/security.`
+نطاقك: تسجيل الدخول، رموز التحقق (OTP) والتحقق الثنائي، استعادة الوصول وكلمة المرور، الدخول عبر Google/Microsoft/Facebook/GitHub، الجلسات والأجهزة، والدخول الموحد لأنظمة العزب، ومشكلات الحساب.
+خارج ذلك اعتذر بلطف ووجّه المستخدم للموقع المختص.
+
+قاعدة التحقق: قبل مساعدة المستخدم في أي مشكلة تخص حسابه يجب التحقق من هويته برمز.
+اسأله: هل يفضل استلام الرمز على البريد الإلكتروني أم واتساب؟
+- للبريد، أخرج سطرًا وحيدًا: <<SEND_OTP:{"email":"user@example.com"}>>
+- لواتساب، اطلب رقمه بالصيغة الدولية ثم أخرج: <<SEND_OTP:{"phone":"+201XXXXXXXXX","channel":"whatsapp"}>>
+لا تخترع رمزًا ولا تطلب من المستخدم كتابة الرمز في الرسالة؛ ستظهر له خانة إدخال الرمز في الدردشة تلقائيًا.
+بعد التحقق (ستُبلَّغ بحالة المستخدم الموثّق) ساعده خطوة بخطوة في حل مشكلته. لإدارة الجلسات والتحقق الثنائي وجّهه إلى /auth/security.`
 
 function isEmail(v: unknown): v is string {
   return typeof v === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v) && v.length <= 254
 }
+function isPhone(v: unknown): v is string {
+  return typeof v === 'string' && /^\+[1-9]\d{7,14}$/.test(v)
+}
 
-async function sendOtp(email: string, lang: 'ar' | 'en') {
+type OtpTarget = { kind: 'email' | 'whatsapp'; target: string }
+
+async function sendOtp(t: OtpTarget, lang: 'ar' | 'en'): Promise<{ text: string; ok: boolean }> {
   const now = Date.now()
-  const last = otpThrottle.get(email) ?? 0
+  const last = otpThrottle.get(t.target) ?? 0
   if (now - last < OTP_COOLDOWN_MS) {
-    return lang === 'ar'
-      ? '⏳ تم إرسال رمز لهذا البريد قبل قليل. انتظر دقيقة ثم أعد المحاولة.'
-      : '⏳ A code was just sent to this address. Please wait a minute and try again.'
+    return { ok: true, text: lang === 'ar'
+      ? '⏳ أُرسل رمز قبل قليل. أدخله في الخانة أدناه أو انتظر دقيقة لطلب رمز جديد.'
+      : '⏳ A code was just sent. Enter it below or wait a minute to request a new one.' }
   }
-  otpThrottle.set(email, now)
+  otpThrottle.set(t.target, now)
 
   const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-  const { error } = await admin.auth.signInWithOtp({
-    email,
-    options: { shouldCreateUser: true, emailRedirectTo: REDIRECT_TO },
-  })
+  const { error } = t.kind === 'email'
+    ? await admin.auth.signInWithOtp({ email: t.target, options: { shouldCreateUser: true, emailRedirectTo: REDIRECT_TO } })
+    : await admin.auth.signInWithOtp({ phone: t.target, options: { shouldCreateUser: true, channel: 'whatsapp' } })
   if (error) {
-    console.error('sendOtp error:', error.message)
-    return lang === 'ar'
-      ? '⚠️ تعذّر إرسال الرمز الآن. تأكد من صحة البريد وحاول لاحقًا.'
-      : '⚠️ Could not send the code right now. Check the email and try later.'
+    otpThrottle.delete(t.target)
+    console.error('sendOtp error:', t.kind, error.message)
+    return { ok: false, text: lang === 'ar'
+      ? `⚠️ تعذّر إرسال الرمز عبر ${t.kind === 'email' ? 'البريد' : 'واتساب'} الآن. جرّب الطريقة الأخرى أو حاول لاحقًا.`
+      : `⚠️ Could not send the code via ${t.kind === 'email' ? 'email' : 'WhatsApp'}. Try the other method or retry later.` }
   }
-  return lang === 'ar'
-    ? `✅ أرسلت رمز تحقق مكوّن من 6 أرقام إلى **${email}**.\n\nافتح بريدك وأدخل الرمز في صفحة التحقق — صلاحيته 60 دقيقة.\n\n🔐 لأسباب أمنية لا يمكن عرض الرمز هنا في الدردشة، يصل إلى بريدك فقط.`
-    : `✅ I've sent a 6-digit verification code to **${email}**.\n\nOpen your inbox and enter it on the verification page — valid for 60 minutes.\n\n🔐 For security the code is never shown in chat; it only goes to your inbox.`
+  const where = t.kind === 'email' ? (lang === 'ar' ? 'بريدك' : 'your email') : (lang === 'ar' ? 'واتساب' : 'WhatsApp')
+  return { ok: true, text: lang === 'ar'
+    ? `✅ أرسلت رمز تحقق إلى ${where} **${t.target}**.\n\nأدخل الرمز في الخانة أسفل الدردشة لإكمال التحقق. 🔐 لن يظهر الرمز هنا أبدًا.`
+    : `✅ I sent a verification code to ${where} **${t.target}**.\n\nEnter it in the box below to finish verification. 🔐 The code is never shown in chat.` }
 }
 
 
