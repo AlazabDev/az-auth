@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { MessageSquare, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { supabase } from "@/integrations/supabase/client";
 import AzaBotChat from "./AzaBotChat";
 
 type Status = "online" | "checking" | "offline";
@@ -33,12 +32,14 @@ const AzaBotWidget = () => {
     check();
     const id = setInterval(check, 30000);
     const on = () => check();
+    const off = () => setStatus('offline');
     window.addEventListener("online", on);
-    window.addEventListener("offline", () => setStatus("offline"));
+    window.addEventListener("offline", off);
     return () => {
       cancelled = true;
       clearInterval(id);
       window.removeEventListener("online", on);
+      window.removeEventListener('offline', off);
     };
   }, []);
 
@@ -46,7 +47,7 @@ const AzaBotWidget = () => {
     online: {
       dot: "bg-green-400",
       ring: "bg-green-400/50",
-      label: lang === "ar" ? "متصل بالوكيل" : "Agent connected",
+      label: lang === "ar" ? "خدمة الشات متاحة" : "Chat service reachable",
     },
     checking: {
       dot: "bg-amber-300",
@@ -92,7 +93,7 @@ const AzaBotWidget = () => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.9 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed bottom-6 end-6 z-50 w-[380px] h-[560px] max-h-[80vh] rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-border bg-background"
+            className="fixed bottom-6 end-6 z-50 w-[380px] max-w-[calc(100vw-3rem)] h-[640px] max-h-[85vh] rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-border bg-background"
           >
             {/* Header */}
             <div className="bg-gradient-to-r from-amber-500 to-amber-600 p-4 flex items-center justify-between text-white">

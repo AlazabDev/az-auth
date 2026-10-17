@@ -7,8 +7,8 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 }
 
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 const MCP_SECRET_TOKEN = Deno.env.get('MCP_SECRET_TOKEN') // لحماية استدعاء الأدوات من خارج المنظومة
 
 // 1. تعريف الأدوات المتاحة لوكيل az-agent-auth (Schema)
@@ -165,7 +165,13 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
-  // التحقق الأمني الاختياري للـ MCP Token
+  // Fail closed: an unset shared token must never expose service-role tools.
+  if (!MCP_SECRET_TOKEN || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    return new Response(JSON.stringify({ error: 'MCP service not configured' }), {
+      status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+  // التحقق الأمني الإلزامي للـ MCP Token
   if (MCP_SECRET_TOKEN) {
     const authHeader = req.headers.get('Authorization')
     if (authHeader !== `Bearer ${MCP_SECRET_TOKEN}`) {
@@ -206,6 +212,12 @@ Deno.serve(async (req) => {
 
     // 2) طلب تنفيذ أداة tools/call
     if (method === 'tools/call') {
+      // Shared agent credentials are not proof of the end user's identity.
+      // Keep account tools fail-closed until per-user authorization is implemented.
+      return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { code: -32003, message: 'Account tools unavailable until verified per-user authorization is configured' } }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+      /*
       const { name, arguments: toolArgs } = params || {}
       try {
         const toolResult = await executeTool(name, toolArgs || {})
@@ -231,6 +243,7 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
       }
+      */
     }
 
     // طريقة غير مدعومة
