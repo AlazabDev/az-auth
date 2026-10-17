@@ -7,6 +7,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import ReactMarkdown from "react-markdown";
+import { Button } from '@/components/ui/button';
+import OtpRequest, { chatError } from './OtpRequest';
 
 interface Attachment {
   name: string;
@@ -34,8 +36,9 @@ const AzaBotChat = () => {
   const [activeTab, setActiveTab] = useState<"text" | "voice">("text");
   const [messages, setMessages] = useState<Message[]>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved) : [];
+      const saved = sessionStorage.getItem(STORAGE_KEY);
+      const parsed = saved ? JSON.parse(saved) : [];
+      return Array.isArray(parsed) ? parsed.filter(m => m && ['user', 'assistant'].includes(m.role) && typeof m.content === 'string').slice(-38) : [];
     } catch { return []; }
   });
   const [input, setInput] = useState("");
@@ -52,18 +55,19 @@ const AzaBotChat = () => {
   const [otpError, setOtpError] = useState("");
 
   const verifyCode = async () => {
+    if (otpBusy) return;
     if (!pendingOtp || !/^\d{6,8}$/.test(otpCode.trim())) {
-      setOtpError(lang === "ar" ? "أدخل الرمز المكوّن من 6 أرقام" : "Enter the 6-digit code");
+      setOtpError(lang === "ar" ? "أدخل الرمز المكوّن من 6 إلى 8 أرقام" : "Enter the 6–8 digit code");
       return;
     }
     setOtpBusy(true);
     setOtpError("");
     const token = otpCode.trim();
-    const { error } = pendingOtp.kind === "email"
+    try {
+    const { data, error } = pendingOtp.kind === "email"
       ? await supabase.auth.verifyOtp({ email: pendingOtp.target, token, type: "email" })
       : await supabase.auth.verifyOtp({ phone: pendingOtp.target, token, type: "sms" });
-    setOtpBusy(false);
-    if (error) {
+    if (error || !data.session || !data.user) {
       setOtpError(lang === "ar" ? "الرمز غير صحيح أو منتهي. حاول مرة أخرى." : "Invalid or expired code. Try again.");
       return;
     }
@@ -76,6 +80,9 @@ const AzaBotChat = () => {
         ? "✅ تم التحقق من هويتك بنجاح. اشرح لي مشكلتك وسأساعدك في حلها خطوة بخطوة."
         : "✅ You're verified. Tell me about your issue and I'll help you solve it step by step.",
     }]);
+    } catch {
+      setOtpError(lang === 'ar' ? 'تعذّر التحقق. حاول لاحقًا.' : 'Verification failed. Try later.');
+    } finally { setOtpBusy(false); }
   };
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -96,7 +103,10 @@ const AzaBotChat = () => {
   }, [messages]);
 
   useEffect(() => {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(messages)); } catch {}
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-38).map(({ id, role, content }) => ({ id, role, content }))));
+    } catch {}
   }, [messages]);
 
   const sendMessage = useCallback(async (text: string, attachment?: Attachment) => {
@@ -114,7 +124,7 @@ const AzaBotChat = () => {
     setIsLoading(true);
 
     try {
-      const chatMessages = [...messages, userMsg].map((m) => ({
+      const chatMessages = [...messages, userMsg].slice(-39).map((m) => ({
         role: m.role,
         content: m.attachment ? `${m.content}\n[المستخدم أرفق ${m.attachment.type.startsWith("image") ? "صورة" : "ملف"}: ${m.attachment.name}]` : m.content,
       }));
@@ -123,7 +133,11 @@ const AzaBotChat = () => {
         body: { messages: chatMessages },
       });
 
-      if (error) throw error;
+      if (error) {
+        const detail = await chatError(error);
+        throw new Error(detail ?? t('azabot.error'));
+      }
+      if (typeof data?.reply !== 'string' || !data.reply.trim()) throw new Error(t('azabot.error'));
 
       const botMsg: Message = {
         id: (Date.now() + 1).toString(),
@@ -135,10 +149,9 @@ const AzaBotChat = () => {
 
       if (activeTab === "voice") playTTS(botMsg.content, botMsg.id);
     } catch (err) {
-      console.error("Chat error:", err);
       setMessages((prev) => [
         ...prev,
-        { id: (Date.now() + 1).toString(), role: "assistant", content: t("azabot.error") },
+        { id: (Date.now() + 1).toString(), role: "assistant", content: err instanceof Error ? err.message : t('azabot.error') },
       ]);
     } finally {
       setIsLoading(false);
@@ -267,6 +280,8 @@ const AzaBotChat = () => {
 
   const clearChat = () => {
     setMessages([]);
+    setPendingOtp(null); setOtpCode(''); setOtpError('');
+    sessionStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(STORAGE_KEY);
   };
 
@@ -435,6 +450,10 @@ const AzaBotChat = () => {
         <div ref={messagesEndRef} />
       </div>
 
+      {!pendingOtp && <OtpRequest lang={lang} onSent={(otp, reply) => {
+        setPendingOtp(otp); setOtpCode(''); setOtpError('');
+        setMessages(prev => [...prev, { id: crypto.randomUUID(), role: 'assistant', content: reply }]);
+      }} />}
       {pendingOtp && (
         <div className="px-3 py-2 border-t border-border bg-amber-50/50 dark:bg-amber-950/10">
           <p className="text-xs text-muted-foreground mb-1.5">
@@ -443,7 +462,7 @@ const AzaBotChat = () => {
           <div className="flex items-center gap-1.5">
             <input
               inputMode="numeric"
-              autoComplete="one-time-code"
+              autoComplete="off"
               maxLength={8}
               value={otpCode}
               onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
@@ -452,12 +471,12 @@ const AzaBotChat = () => {
               placeholder="••••••"
               aria-label="Verification code"
             />
-            <button onClick={verifyCode} disabled={otpBusy} className="px-3 py-1.5 rounded-full bg-amber-500 text-white text-xs hover:bg-amber-600 disabled:opacity-50">
+            <Button size="sm" onClick={verifyCode} disabled={otpBusy}>
               {otpBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : lang === "ar" ? "تحقق" : "Verify"}
-            </button>
-            <button onClick={() => setPendingOtp(null)} className="text-muted-foreground hover:text-destructive" aria-label="Cancel">
+            </Button>
+            <Button size="icon" variant="ghost" onClick={() => { setPendingOtp(null); setOtpCode(''); }} disabled={otpBusy} aria-label="Cancel">
               <X className="w-4 h-4" />
-            </button>
+            </Button>
           </div>
           {otpError && <p className="text-xs text-destructive mt-1">{otpError}</p>}
         </div>
