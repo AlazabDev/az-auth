@@ -1,217 +1,105 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { AGENT_NAME, AGENT_VERSION, normalizeTarget, requestedOtp, targetWasProvided, validateMessages, providerFailure, type OtpTarget } from './policy.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  'Access-Control-Allow-Methods': 'GET, HEAD, POST, OPTIONS',
 }
-
-const FOUNDRY_API_KEY = Deno.env.get('FOUNDRY_API_KEY')
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
-const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
-
 const FOUNDRY_ENDPOINT = 'https://az-ai-resource.services.ai.azure.com/api/projects/az-ai-gateway'
-const AGENT_NAME = 'az-agent-auth'
-const AGENT_VERSION = '2'
+const FOUNDRY_API_KEY = Deno.env.get('FOUNDRY_API_KEY')
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
+  status, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+})
+const client = () => createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } })
 
-const MAX_MESSAGES = 40
-const MAX_CONTENT_LEN = 4000
-
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const REDIRECT_TO = 'https://auth.alazab.com/auth/verify'
-
-// Simple in-memory throttle (per isolate) to limit code-sending abuse
-const otpThrottle = new Map<string, number>()
-const OTP_COOLDOWN_MS = 60_000
-
-const TOOL_SYSTEM_PROMPT = `أنت وكيل مصادقة العزب الرسمي (az-agent-auth) في بوابة auth.alazab.com.
-نطاقك: تسجيل الدخول، رموز التحقق (OTP) والتحقق الثنائي، استعادة الوصول وكلمة المرور، الدخول عبر Google/Microsoft/Facebook/GitHub، الجلسات والأجهزة، والدخول الموحد لأنظمة العزب، ومشكلات الحساب.
-خارج ذلك اعتذر بلطف ووجّه المستخدم للموقع المختص.
-
-قاعدة التحقق: قبل مساعدة المستخدم في أي مشكلة تخص حسابه يجب التحقق من هويته برمز.
-اسأله: هل يفضل استلام الرمز على البريد الإلكتروني أم واتساب؟
-- للبريد، أخرج سطرًا وحيدًا: <<SEND_OTP:{"email":"user@example.com"}>>
-- لواتساب، اطلب رقمه بالصيغة الدولية ثم أخرج: <<SEND_OTP:{"phone":"+201XXXXXXXXX","channel":"whatsapp"}>>
-لا تخترع رمزًا ولا تطلب من المستخدم كتابة الرمز في الرسالة؛ ستظهر له خانة إدخال الرمز في الدردشة تلقائيًا.
-بعد التحقق (ستُبلَّغ بحالة المستخدم الموثّق) ساعده خطوة بخطوة في حل مشكلته. لإدارة الجلسات والتحقق الثنائي وجّهه إلى /auth/security.`
-
-function isEmail(v: unknown): v is string {
-  return typeof v === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v) && v.length <= 254
-}
-function isPhone(v: unknown): v is string {
-  return typeof v === 'string' && /^\+[1-9]\d{7,14}$/.test(v)
-}
-
-type OtpTarget = { kind: 'email' | 'whatsapp'; target: string }
-
-async function sendOtp(t: OtpTarget, lang: 'ar' | 'en'): Promise<{ text: string; ok: boolean }> {
-  const now = Date.now()
-  const last = otpThrottle.get(t.target) ?? 0
-  if (now - last < OTP_COOLDOWN_MS) {
-    return { ok: true, text: lang === 'ar'
-      ? '⏳ أُرسل رمز قبل قليل. أدخله في الخانة أدناه أو انتظر دقيقة لطلب رمز جديد.'
-      : '⏳ A code was just sent. Enter it below or wait a minute to request a new one.' }
-  }
-  otpThrottle.set(t.target, now)
-
-  const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-  const { error } = t.kind === 'email'
-    ? await admin.auth.signInWithOtp({ email: t.target, options: { shouldCreateUser: true, emailRedirectTo: REDIRECT_TO } })
-    : await admin.auth.signInWithOtp({ phone: t.target, options: { shouldCreateUser: true, channel: 'whatsapp' } })
+// Delivery uses public Auth rather than service-role privileges. Supabase enforces
+// shared OTP rate limits and configured CAPTCHA across all function instances.
+async function sendOtp(target: OtpTarget, captchaToken?: string) {
+  const auth = client()
+  const { error } = target.kind === 'email'
+    ? await auth.auth.signInWithOtp({ email: target.target, options: { shouldCreateUser: true, captchaToken } })
+    : await auth.auth.signInWithOtp({ phone: target.target, options: { shouldCreateUser: true, channel: 'whatsapp', captchaToken } })
   if (error) {
-    otpThrottle.delete(t.target)
-    console.error('sendOtp error:', t.kind, error.message)
-    return { ok: false, text: lang === 'ar'
-      ? `⚠️ تعذّر إرسال الرمز عبر ${t.kind === 'email' ? 'البريد' : 'واتساب'} الآن. جرّب الطريقة الأخرى أو حاول لاحقًا.`
-      : `⚠️ Could not send the code via ${t.kind === 'email' ? 'email' : 'WhatsApp'}. Try the other method or retry later.` }
+    console.error('OTP delivery failed', { channel: target.kind, status: error.status, code: error.code })
+    return json({ error: error.status === 429
+      ? 'طلبات كثيرة. انتظر قبل طلب رمز آخر.'
+      : 'تعذّر إرسال الرمز. تحقق من إعدادات البريد أو واتساب ورصيد خدمة الإرسال.', code: error.code ?? 'OTP_DELIVERY_FAILED' }, error.status === 429 ? 429 : 503)
   }
-  const where = t.kind === 'email' ? (lang === 'ar' ? 'بريدك' : 'your email') : (lang === 'ar' ? 'واتساب' : 'WhatsApp')
-  return { ok: true, text: lang === 'ar'
-    ? `✅ أرسلت رمز تحقق إلى ${where} **${t.target}**.\n\nأدخل الرمز في الخانة أسفل الدردشة لإكمال التحقق. 🔐 لن يظهر الرمز هنا أبدًا.`
-    : `✅ I sent a verification code to ${where} **${t.target}**.\n\nEnter it in the box below to finish verification. 🔐 The code is never shown in chat.` }
-}
-
-
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  })
+  return json({ reply: `تم قبول طلب إرسال رمز عبر ${target.kind === 'email' ? 'البريد' : 'واتساب'} إلى ${target.target}. أدخل الرمز في الخانة أسفل الدردشة؛ إن لم يصل فراجع الرسائل غير المرغوبة أو حاول لاحقًا.`, otp: target, agent: AGENT_NAME })
 }
 
 function extractText(data: any): string {
   if (typeof data?.output_text === 'string' && data.output_text.trim()) return data.output_text
   const parts: string[] = []
-  for (const item of data?.output ?? []) {
-    for (const c of item?.content ?? []) {
+  for (const item of Array.isArray(data?.output) ? data.output : []) {
+    for (const c of Array.isArray(item?.content) ? item.content : []) {
       if (typeof c?.text === 'string') parts.push(c.text)
       else if (typeof c?.text?.value === 'string') parts.push(c.text.value)
     }
   }
-  if (parts.length) return parts.join('\n')
-  return data?.choices?.[0]?.message?.content ?? ''
+  return parts.join('\n')
 }
 
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
-
-  // Lightweight health check for the widget status indicator (no auth needed)
+Deno.serve(async req => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method === 'GET' || req.method === 'HEAD') {
-    return json({ status: 'ok', agent: AGENT_NAME })
+    return json({ status: FOUNDRY_API_KEY ? 'configured' : 'unconfigured', agent: AGENT_NAME, version: AGENT_VERSION, ai_verified: false })
   }
-
-  if (!FOUNDRY_API_KEY) {
-    console.error('FOUNDRY_API_KEY not configured')
-    return json({ error: 'Service unavailable' }, 500)
-  }
-
-  // Public chatbot: authentication is optional. If a real user token is sent,
-  // we resolve the user for logging; anonymous visitors are allowed.
-  const authHeader = req.headers.get('Authorization')
-  let userId: string | null = null
-  let userLabel = ''
-  if (authHeader?.startsWith('Bearer ')) {
-    try {
-      const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-      const token = authHeader.replace('Bearer ', '')
-      const { data: userData } = await supabase.auth.getUser(token)
-      userId = userData?.user?.id ?? null
-      userLabel = userData?.user?.email ?? userData?.user?.phone ?? ''
-    } catch {
-      userId = null
-    }
-  }
-  console.log('azabot-chat caller:', userId ?? 'anonymous')
-
-
+  if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return json({ error: 'Auth service not configured' }, 503)
   try {
-    const { messages } = await req.json()
-
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      return json({ error: 'messages array required' }, 400)
+    const raw = await req.text()
+    if (new TextEncoder().encode(raw).byteLength > 180000) return json({ error: 'Request too large' }, 413)
+    let body: any
+    try { body = JSON.parse(raw) } catch { return json({ error: 'Invalid JSON' }, 400) }
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return json({ error: 'Invalid request' }, 400)
+    if (body.captchaToken !== undefined && (typeof body.captchaToken !== 'string' || body.captchaToken.length > 4096)) return json({ error: 'Invalid CAPTCHA token' }, 400)
+    if (body.action === 'send_otp') {
+      const target = normalizeTarget(body.kind, body.target)
+      if (!target) return json({ error: 'أدخل بريدًا صحيحًا أو رقم واتساب يبدأ بـ + ورمز الدولة.' }, 400)
+      return await sendOtp(target, body.captchaToken)
     }
-    if (messages.length > MAX_MESSAGES) {
-      return json({ error: `too many messages (max ${MAX_MESSAGES})` }, 400)
+    if (body.action !== undefined) return json({ error: 'Unknown action' }, 400)
+    if (!validateMessages(body.messages)) return json({ error: 'Invalid messages: 1–40 user/assistant messages, max 4000 characters each, ending with user' }, 400)
+    const messages = body.messages
+    const directOtp = requestedOtp(messages[messages.length - 1].content)
+    if (directOtp) return await sendOtp(directOtp, body.captchaToken)
+    if (!FOUNDRY_API_KEY) return json({ error: 'مفتاح اتصال وكيل az-agent-auth غير مضبوط.', code: 'FOUNDRY_NOT_CONFIGURED' }, 503)
+
+    // Client messages can never establish identity. Resolve only a real Auth JWT.
+    const token = req.headers.get('Authorization')?.replace(/^Bearer /, '')
+    let verified = false
+    if (token && token !== SUPABASE_ANON_KEY) {
+      const { data, error } = await client().auth.getUser(token)
+      if (!error && data.user && !data.user.is_anonymous) verified = true
     }
-    for (const m of messages) {
-      if (!m || typeof m.role !== 'string' || typeof m.content !== 'string') {
-        return json({ error: 'invalid message shape' }, 400)
-      }
-      if (!['user', 'assistant', 'system'].includes(m.role)) {
-        return json({ error: 'invalid role' }, 400)
-      }
-      if (m.content.length > MAX_CONTENT_LEN) {
-        return json({ error: `message too long (max ${MAX_CONTENT_LEN})` }, 400)
-      }
-    }
-
-    const identityNote = userId
-      ? `حالة المستخدم: موثّق ✅ (${userLabel}). لا تطلب رمزًا مرة أخرى؛ ساعده مباشرة في حل مشكلته.`
-      : 'حالة المستخدم: غير موثّق بعد. اطلب التحقق قبل المساعدة في أي أمر يخص الحساب.'
-
-    const input = [
-      { type: 'message', role: 'user', content: TOOL_SYSTEM_PROMPT + '\n\n' + identityNote },
-      ...messages.map((m: { role: string; content: string }) => ({
-        type: 'message',
-        role: m.role === 'system' ? 'user' : m.role,
-        content: m.content,
-      })),
-    ]
-
+    const instruction = `أنت وكيل az-agent-auth الرسمي. أجب بلغة المستخدم بإجابات مفيدة ودقيقة عن الدخول والتحقق واستعادة الوصول. لا تدّع تنفيذ إجراء بلا نتيجة أداة مؤكدة. لا تعرض رموزًا ولا تطلب كتابتها في المحادثة. قبل المساعدة الخاصة بالحساب يجب التحقق من الهوية. حالة الهوية من الخادم: ${verified ? 'موثّق، ساعده دون طلب رمز جديد' : 'غير موثّق؛ اسأله البريد أم واتساب ثم اطلب العنوان أو الرقم الدولي'}. لإرسال رمز أخرج <<SEND_OTP:{"email":"عنوان المستخدم"}>> أو <<SEND_OTP:{"phone":"+رقم المستخدم","channel":"whatsapp"}>>. لا تستدع أداة إرسال أخرى؛ التطبيق ينفذ الإرسال. الحساب الموثق لا يمنح صلاحية إدارة مستخدمين آخرين. لا تدّع قراءة الصور أو الملفات المرفقة لأن محتواها لم يرسل إلى النموذج.`
     const res = await fetch(`${FOUNDRY_ENDPOINT}/openai/v1/responses`, {
-      method: 'POST',
-      headers: {
-        'api-key': FOUNDRY_API_KEY,
-        'Authorization': `Bearer ${FOUNDRY_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        agent_reference: { type: 'agent_reference', name: AGENT_NAME, version: AGENT_VERSION },
-        input,
-        store: false,
-      }),
+      method: 'POST', headers: { 'api-key': FOUNDRY_API_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agent_reference: { type: 'agent_reference', name: AGENT_NAME, version: AGENT_VERSION }, input: [{ role: 'user', content: instruction }, ...messages], store: false }),
     })
-
     if (!res.ok) {
-      const errorText = await res.text()
-      console.error(`Foundry agent error [${res.status}]: ${errorText}`)
-      return json({ error: 'Agent service error' }, 502)
+      const upstream = await res.text()
+      const failure = providerFailure(res.status, upstream)
+      console.error('Foundry request failed', { status: res.status, code: failure.code, requestId: res.headers.get('x-request-id') })
+      return json({ error: failure.error, code: failure.code, agent: AGENT_NAME }, failure.status)
     }
-
-    const data = await res.json()
-    let reply = extractText(data) || 'عذراً، لم أتمكن من المعالجة.'
-    let otp: OtpTarget | null = null
-
+    let reply = extractText(await res.json())
+    if (!reply.trim()) return json({ error: 'لم يعُد الوكيل بإجابة. لم يتم إرسال رمز.', code: 'FOUNDRY_EMPTY_REPLY' }, 502)
     const call = reply.match(/<<SEND_OTP:(\{[\s\S]*?\})>>/)
     if (call) {
-      const lastUser = [...messages].reverse().find((m: any) => m.role === 'user')?.content ?? ''
-      const lang: 'ar' | 'en' = /[\u0600-\u06FF]/.test(lastUser) ? 'ar' : 'en'
-      let args: any = {}
-      try { args = JSON.parse(call[1]) ?? {} } catch { args = {} }
-      const phone = typeof args.phone === 'string' ? args.phone.replace(/[\s-]/g, '') : undefined
-      const prefix = reply.replace(call[0], '').trim()
-
-      let target: OtpTarget | null = null
-      if (isPhone(phone)) target = { kind: 'whatsapp', target: phone }
-      else if (isEmail(args.email)) target = { kind: 'email', target: args.email.toLowerCase() }
-
-      if (!target) {
-        reply = lang === 'ar'
-          ? 'من فضلك أرسل بريدًا صحيحًا أو رقم واتساب بالصيغة الدولية (مثل +2010...) لأرسل إليه الرمز.'
-          : 'Please share a valid email or a WhatsApp number in international format (e.g. +2010...).'
-      } else {
-        const r = await sendOtp(target, lang)
-        reply = (prefix + '\n\n' + r.text).trim()
-        if (r.ok) otp = target
-      }
+      let args: any
+      try { args = JSON.parse(call[1]) } catch { return json({ error: 'طلب إرسال غير صالح؛ لم يُرسل رمز.' }, 400) }
+      const target = normalizeTarget(args.phone ? 'whatsapp' : 'email', args.phone ?? args.email)
+      if (!target || !targetWasProvided(target, messages)) return json({ error: 'أرسل بريدك أو رقم واتساب الصحيح لطلب الرمز.' }, 400)
+      return await sendOtp(target, body.captchaToken)
     }
-
-    return json({ reply, otp, verified: !!userId, agent: AGENT_NAME })
-
-  } catch (error) {
-    console.error('AzaBot agent error:', error)
-    return json({ error: 'An internal error occurred' }, 500)
+    return json({ reply, verified, agent: AGENT_NAME })
+  } catch {
+    console.error('Chat request failed')
+    return json({ error: 'تعذّر إكمال الطلب. حاول لاحقًا.', code: 'CHAT_REQUEST_FAILED' }, 503)
   }
 })
