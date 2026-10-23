@@ -38,6 +38,7 @@ const AdminLayout = () => {
     { to: "/admin/settings", icon: Activity, label: "صحة مزوّدي المصادقة" },
     { to: "/admin/users", icon: Users, label: "المستخدمون والصلاحيات" },
     { to: "/admin/apps", icon: Boxes, label: "ربط الأنظمة" },
+    { to: "/admin/tokens", icon: KeyRound, label: "مفاتيح الرموز والربط" },
     { to: "/admin/audit", icon: ScrollText, label: "سجل التدقيق" },
     { to: "/admin/api", icon: Plug, label: "بوابة API" },
     { to: "/admin/database", icon: Database, label: "قاعدة البيانات" },
