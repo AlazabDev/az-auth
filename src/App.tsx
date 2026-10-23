@@ -71,6 +71,7 @@ const App = () => (
                 <Route path="api" element={<ApiGatewayPage />} />
                 <Route path="database" element={<DatabasePage />} />
                 <Route path="users" element={<UsersAdminPage />} />
+                <Route path="tokens" element={<TokensAdminPage />} />
               </Route>
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
