@@ -61,6 +61,7 @@ const App = () => (
               <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route path="/portal/refresh" element={<PortalRefreshPage />} />
               <Route path="/admin" element={<AdminLayout />}>
+              <Route path="/admin/tokens" element={<TokensAdminPage />} />
 
                 <Route index element={<AdminOverviewPage />} />
                 <Route path="auth" element={<AuthAdminPage />} />
