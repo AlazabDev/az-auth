@@ -1,5 +1,5 @@
 export const AGENT_NAME = 'az-agent-auth'
-export const AGENT_VERSION = '9'
+export const AGENT_VERSION = '11'
 export type OtpTarget = { kind: 'email' | 'whatsapp'; target: string }
 export type ChatMessage = { role: 'user' | 'assistant'; content: string }
 
