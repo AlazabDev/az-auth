@@ -149,7 +149,7 @@ const translations: Record<Lang, Record<string, string>> = {
 
     // OTP Auth Flow
     "otp.login.title": "تسجيل الدخول",
-    "otp.login.subtitle": "أدخل بريدك الإلكتروني لتلقي رمز التحقق",
+    "otp.login.subtitle": "سجّل دخولك بكلمة المرور، أو اطلب رمز تحقق عبر البريد أو الهاتف",
     "otp.login.btn": "إرسال رمز التحقق",
     "otp.login.sending": "جارٍ الإرسال...",
     "otp.check.title": "تحقق من بريدك الإلكتروني",
@@ -389,7 +389,7 @@ const translations: Record<Lang, Record<string, string>> = {
 
     // OTP Auth Flow
     "otp.login.title": "Login",
-    "otp.login.subtitle": "Enter your email to receive a verification code",
+    "otp.login.subtitle": "Sign in with your password, or request a one-time code via email or phone",
     "otp.login.btn": "Send Verification Code",
     "otp.login.sending": "Sending...",
     "otp.check.title": "Check Your Email",
