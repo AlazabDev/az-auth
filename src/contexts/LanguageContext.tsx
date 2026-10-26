@@ -149,7 +149,7 @@ const translations: Record<Lang, Record<string, string>> = {
 
     // OTP Auth Flow
     "otp.login.title": "تسجيل الدخول",
-    "otp.login.subtitle": "أدخل بريدك الإلكتروني لتلقي رمز التحقق",
+    "otp.login.subtitle": "سجّل دخولك بكلمة المرور، أو اطلب رمز تحقق عبر البريد أو الهاتف",
     "otp.login.btn": "إرسال رمز التحقق",
     "otp.login.sending": "جارٍ الإرسال...",
     "otp.check.title": "تحقق من بريدك الإلكتروني",
@@ -224,6 +224,9 @@ const translations: Record<Lang, Record<string, string>> = {
     "auth.providerDisabled": "هذا المزوّد غير متاح حالياً",
     "auth.tabEmail": "بريد إلكتروني",
     "auth.tabPhone": "هاتف",
+    "auth.tabPassword": "كلمة المرور",
+    "auth.password.signin": "دخول",
+    "auth.mfa.sent": "سجّلنا دخولك، أكمل رمز التحقق المرسل إلى بريدك",
 
     // Auth Settings Page
     "settings.title": "إعدادات المصادقة",
@@ -386,7 +389,7 @@ const translations: Record<Lang, Record<string, string>> = {
 
     // OTP Auth Flow
     "otp.login.title": "Login",
-    "otp.login.subtitle": "Enter your email to receive a verification code",
+    "otp.login.subtitle": "Sign in with your password, or request a one-time code via email or phone",
     "otp.login.btn": "Send Verification Code",
     "otp.login.sending": "Sending...",
     "otp.check.title": "Check Your Email",
@@ -461,6 +464,9 @@ const translations: Record<Lang, Record<string, string>> = {
     "auth.providerDisabled": "This provider is not available yet",
     "auth.tabEmail": "Email",
     "auth.tabPhone": "Phone",
+    "auth.tabPassword": "Password",
+    "auth.password.signin": "Sign in",
+    "auth.mfa.sent": "You're signed in — complete the code sent to your email",
 
     // Auth Settings Page
     "settings.title": "Authentication Settings",

@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Mail, ArrowLeft, ArrowRight, Shield, Loader2, Lock, Sparkles, Smartphone } from "lucide-react";
+import { Mail, ArrowLeft, ArrowRight, Shield, Loader2, Lock, Sparkles, Smartphone, Eye, EyeOff, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
+import { getMfaPrefs } from "@/lib/mfa";
 
 import { captureSsoTarget, fetchSsoApps, getSsoTarget, resolveSsoApp } from "@/lib/sso";
 import { signInWithProvider, sendPhoneOtp } from "@/lib/oauth";
@@ -47,6 +48,8 @@ const AuthLoginPage = () => {
   const [azureLoading, setAzureLoading] = useState(false);
   const [facebookLoading, setFacebookLoading] = useState(false);
   const [tab, setTab] = useState("email");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [targetApp, setTargetApp] = useState<string | null>(null);
   const Arrow = dir === "rtl" ? ArrowRight : ArrowLeft;
 
@@ -113,6 +116,36 @@ const AuthLoginPage = () => {
       toast.error(err.message || "Error sending SMS");
     } finally {
       setPhoneLoading(false);
+    }
+  };
+
+  const handlePasswordLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) return;
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      const uid = data.user?.id;
+      // Step-up: Email OTP as the second factor (same policy across the portal)
+      const prefs = uid ? await getMfaPrefs(uid) : { email_otp_required: true } as { email_otp_required: boolean };
+      if (prefs.email_otp_required) {
+        await supabase.auth.signInWithOtp({
+          email,
+          options: { emailRedirectTo: `${window.location.origin}/auth/success` },
+        });
+        await logAuthEvent({ event: "otp_requested", email, description: "2FA step-up code sent after password sign-in" });
+        toast.success(t("auth.mfa.sent"));
+        navigate(`/auth/verify?email=${encodeURIComponent(email)}&mfa=1`);
+        return;
+      }
+      await logAuthEvent({ event: "login", email, description: "Password sign-in" });
+      navigate("/auth/success");
+    } catch {
+      await logAuthEvent({ event: "failed_login", status: "failure", email, description: "Invalid credentials" });
+      toast.error(t("auth.login.error"));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -306,8 +339,9 @@ const AuthLoginPage = () => {
 
             {/* Email / Phone Tabs */}
             <Tabs value={tab} onValueChange={setTab} className="w-full">
-              <TabsList className="grid grid-cols-2 w-full h-11 rounded-xl">
+              <TabsList className="grid grid-cols-3 w-full h-11 rounded-xl">
                 <TabsTrigger value="email" className="gap-2 rounded-lg"><Mail className="w-4 h-4" /> {t("auth.tabEmail")}</TabsTrigger>
+                <TabsTrigger value="password" className="gap-2 rounded-lg"><KeyRound className="w-4 h-4" /> {t("auth.tabPassword")}</TabsTrigger>
                 <TabsTrigger value="phone" className="gap-2 rounded-lg"><Smartphone className="w-4 h-4" /> {t("auth.tabPhone")}</TabsTrigger>
               </TabsList>
 
@@ -339,6 +373,69 @@ const AuthLoginPage = () => {
                       <><Loader2 className="w-4 h-4 animate-spin" /> {t("otp.login.sending")}</>
                     ) : (
                       <>{t("otp.login.btn")} <Sparkles className="w-4 h-4" /></>
+                    )}
+                  </Button>
+                </form>
+              </TabsContent>
+
+              <TabsContent value="password" className="mt-5">
+                <form onSubmit={handlePasswordLogin} className="space-y-5">
+                  <div className="space-y-2.5">
+                    <Label htmlFor="login-email" className="text-sm font-semibold">{t("auth.email")}</Label>
+                    <div className="relative group">
+                      <Mail className="absolute start-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                      <Input
+                        id="login-email"
+                        type="email"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="example@email.com"
+                        className="ps-11 h-13 rounded-xl text-base border-2 focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all duration-300"
+                        dir="ltr"
+                        autoComplete="email"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="login-password" className="text-sm font-semibold">{t("auth.password")}</Label>
+                      <a href="/auth/forgot-password" className="text-xs font-medium text-primary hover:underline">{t("auth.forgot")}</a>
+                    </div>
+                    <div className="relative group">
+                      <KeyRound className="absolute start-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                      <Input
+                        id="login-password"
+                        type={showPassword ? "text" : "password"}
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="ps-11 pe-11 h-13 rounded-xl text-base border-2 focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all duration-300"
+                        dir="ltr"
+                        autoComplete="current-password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                        className="absolute end-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    disabled={loading || !email || !password}
+                    className="w-full h-13 text-base rounded-xl shadow-md hover:shadow-lg transition-all duration-300 font-bold bg-primary text-primary-foreground hover:bg-primary/90 glow-primary"
+                  >
+                    {loading ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> {t("otp.verify.verifying")}</>
+                    ) : (
+                      <><Lock className="w-4 h-4" /> {t("auth.password.signin")}</>
                     )}
                   </Button>
                 </form>
