@@ -2,13 +2,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { logAuthEvent } from "@/lib/audit";
 
-export type OAuthProvider = "google" | "facebook" | "azure";
+export type OAuthProvider = "google" | "facebook" | "azure" | "github";
 
 const OPTIONS: Record<OAuthProvider, { scopes?: string; label: string }> = {
   google: { label: "Google" },
   facebook: { scopes: "email public_profile", label: "Facebook" },
   // Entra: tenant is restricted to Alazab staff via the Azure Tenant URL in Supabase settings.
   azure: { scopes: "email openid profile", label: "Microsoft Entra" },
+  github: { label: "GitHub" },
 };
 
 export async function signInWithProvider(provider: OAuthProvider): Promise<boolean> {
