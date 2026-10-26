@@ -224,6 +224,9 @@ const translations: Record<Lang, Record<string, string>> = {
     "auth.providerDisabled": "هذا المزوّد غير متاح حالياً",
     "auth.tabEmail": "بريد إلكتروني",
     "auth.tabPhone": "هاتف",
+    "auth.tabPassword": "كلمة المرور",
+    "auth.password.signin": "دخول",
+    "auth.mfa.sent": "سجّلنا دخولك، أكمل رمز التحقق المرسل إلى بريدك",
 
     // Auth Settings Page
     "settings.title": "إعدادات المصادقة",
@@ -461,6 +464,9 @@ const translations: Record<Lang, Record<string, string>> = {
     "auth.providerDisabled": "This provider is not available yet",
     "auth.tabEmail": "Email",
     "auth.tabPhone": "Phone",
+    "auth.tabPassword": "Password",
+    "auth.password.signin": "Sign in",
+    "auth.mfa.sent": "You're signed in — complete the code sent to your email",
 
     // Auth Settings Page
     "settings.title": "Authentication Settings",
