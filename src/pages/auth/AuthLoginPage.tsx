@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Mail, ArrowLeft, ArrowRight, Shield, Loader2, Lock, Sparkles, Smartphone } from "lucide-react";
+import { Mail, ArrowLeft, ArrowRight, Shield, Loader2, Lock, Sparkles, Smartphone, Eye, EyeOff, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
+import { getMfaPrefs } from "@/lib/mfa";
 
 import { captureSsoTarget, fetchSsoApps, getSsoTarget, resolveSsoApp } from "@/lib/sso";
 import { signInWithProvider, sendPhoneOtp } from "@/lib/oauth";
