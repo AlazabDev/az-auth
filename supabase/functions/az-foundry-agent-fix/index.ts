@@ -68,29 +68,20 @@ Deno.serve(async req => {
 
   const headers = { 'api-key': apiKey, 'Content-Type': 'application/json' }
 
+  const APIV = '2025-05-15-preview'
+
   try {
-    const getRes = await fetch(`${FOUNDRY_ENDPOINT}/openai/v1/agents/${AGENT_NAME}`, { headers })
+    const getRes = await fetch(`${FOUNDRY_ENDPOINT}/agents/${AGENT_NAME}?api-version=${APIV}`, { headers })
     const getRaw = await getRes.text()
     if (!getRes.ok || !getRaw.trim()) {
-      // Diagnostic probe of likely agent-management paths
-      const probes: { path: string; status: number; body: string }[] = []
-      const versions = ['2025-05-15-preview', '2025-10-01-preview', '2025-11-15-preview', '2025-12-01-preview', '2026-05-15-preview']
-      for (const v of versions) {
-        for (const p of [`/agents/${AGENT_NAME}?api-version=${v}`, `/agents/${AGENT_NAME}/versions?api-version=${v}`]) {
-          try {
-            const r = await fetch(`${FOUNDRY_ENDPOINT}${p}`, { headers })
-            const t = await r.text()
-            probes.push({ path: p, status: r.status, body: t.slice(0, 1500) })
-          } catch (e) {
-            probes.push({ path: p, status: -1, body: String(e) })
-          }
-        }
-      }
-      return json({ error: 'Agent fetch empty', get_status: getRes.status, get_body: getRaw.slice(0, 1500), probes }, 502)
+      return json({ error: 'Could not fetch agent definition', status: getRes.status, body: getRaw.slice(0, 800) }, 502)
     }
     const current = JSON.parse(getRaw)
+    const latest = current?.versions?.latest ?? {}
+    const def: AnyTool = latest?.definition ?? current?.definition ?? {}
+    const version: string | null = latest?.version ?? def?.version ?? null
 
-    const tools: AnyTool[] = current.tools ?? []
+    const tools: AnyTool[] = def.tools ?? []
     const seen = new Map<string, AnyTool>()
     const removed: string[] = []
     for (const t of tools) {
@@ -100,30 +91,46 @@ Deno.serve(async req => {
     }
     const deduped = [...seen.values()]
 
+    if (removed.length === 0) {
+      await adm.from('app_secrets').upsert(
+        { key: FLAG_KEY, value: new Date().toISOString() },
+        { onConflict: 'key' },
+      )
+      return json({
+        status: 'no_duplicates',
+        latest_version: version,
+        tools_before: tools.length,
+        tools_after: deduped.length,
+        tools: summarizeTools(deduped),
+      })
+    }
+
     const createBody: AnyTool = {
-      name: current.name,
-      model: current.model,
-      instructions: current.instructions,
+      name: AGENT_NAME,
+      model: def.model,
+      instructions: def.instructions,
       tools: deduped,
     }
     for (const key of ['description', 'temperature', 'top_p', 'response_format', 'tool_resources', 'metadata']) {
-      if (current[key] !== undefined && current[key] !== null) createBody[key] = current[key]
+      if (def[key] !== undefined && def[key] !== null) createBody[key] = def[key]
     }
 
     const postRes = await fetch(`${FOUNDRY_ENDPOINT}/openai/v1/agents`, {
       method: 'POST', headers, body: JSON.stringify(createBody),
     })
-    const created = await postRes.json()
+    const postRaw = await postRes.text()
+    let created: AnyTool = {}
+    try { created = JSON.parse(postRaw) } catch { /* non-JSON error body */ }
 
     const result = {
       status: postRes.ok ? 'fixed' : 'failed',
       removed_duplicates: removed,
       tools_before: tools.length,
       tools_after: deduped.length,
-      previous_version: current.version,
+      previous_version: version,
       new_version: created?.version ?? null,
       tools: summarizeTools(created?.tools ?? deduped),
-      detail: postRes.ok ? undefined : created,
+      detail: postRes.ok ? undefined : postRaw.slice(0, 800),
     }
 
     if (postRes.ok) {
