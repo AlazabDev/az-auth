@@ -70,8 +70,27 @@ Deno.serve(async req => {
 
   try {
     const getRes = await fetch(`${FOUNDRY_ENDPOINT}/openai/v1/agents/${AGENT_NAME}`, { headers })
-    const current = await getRes.json()
-    if (!getRes.ok) return json({ error: 'Could not fetch agent definition', detail: current }, 502)
+    const getRaw = await getRes.text()
+    if (!getRes.ok || !getRaw.trim()) {
+      // Diagnostic probe of likely agent-management paths
+      const probes: { path: string; status: number; body: string }[] = []
+      for (const p of [
+        `/openai/v1/agents/${AGENT_NAME}`,
+        `/openai/v1/agents/${AGENT_NAME}/versions`,
+        `/agents/${AGENT_NAME}`,
+        `/openai/v1/assistants/${AGENT_NAME}`,
+      ]) {
+        try {
+          const r = await fetch(`${FOUNDRY_ENDPOINT}${p}`, { headers })
+          const t = await r.text()
+          probes.push({ path: p, status: r.status, body: t.slice(0, 1500) })
+        } catch (e) {
+          probes.push({ path: p, status: -1, body: String(e) })
+        }
+      }
+      return json({ error: 'Agent fetch empty', get_status: getRes.status, get_body: getRaw.slice(0, 1500), probes }, 502)
+    }
+    const current = JSON.parse(getRaw)
 
     const tools: AnyTool[] = current.tools ?? []
     const seen = new Map<string, AnyTool>()
