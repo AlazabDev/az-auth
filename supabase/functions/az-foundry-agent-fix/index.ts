@@ -74,18 +74,16 @@ Deno.serve(async req => {
     if (!getRes.ok || !getRaw.trim()) {
       // Diagnostic probe of likely agent-management paths
       const probes: { path: string; status: number; body: string }[] = []
-      for (const p of [
-        `/openai/v1/agents/${AGENT_NAME}`,
-        `/openai/v1/agents/${AGENT_NAME}/versions`,
-        `/agents/${AGENT_NAME}`,
-        `/openai/v1/assistants/${AGENT_NAME}`,
-      ]) {
-        try {
-          const r = await fetch(`${FOUNDRY_ENDPOINT}${p}`, { headers })
-          const t = await r.text()
-          probes.push({ path: p, status: r.status, body: t.slice(0, 1500) })
-        } catch (e) {
-          probes.push({ path: p, status: -1, body: String(e) })
+      const versions = ['2025-05-15-preview', '2025-10-01-preview', '2025-11-15-preview', '2025-12-01-preview', '2026-05-15-preview']
+      for (const v of versions) {
+        for (const p of [`/agents/${AGENT_NAME}?api-version=${v}`, `/agents/${AGENT_NAME}/versions?api-version=${v}`]) {
+          try {
+            const r = await fetch(`${FOUNDRY_ENDPOINT}${p}`, { headers })
+            const t = await r.text()
+            probes.push({ path: p, status: r.status, body: t.slice(0, 1500) })
+          } catch (e) {
+            probes.push({ path: p, status: -1, body: String(e) })
+          }
         }
       }
       return json({ error: 'Agent fetch empty', get_status: getRes.status, get_body: getRaw.slice(0, 1500), probes }, 502)
